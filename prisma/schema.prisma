@@ -1,9 +1,5 @@
 // Schema de Prisma — PropPelio
 //
-// Fase 0: todavia NO hay modelos de negocio. Este archivo solo deja configurada
-// la conexion a Postgres (Supabase). Los modelos Tenant / User / TenantModule
-// entran en la Fase 1.
-//
 // Las URLs de conexion NO se declaran aca. En Prisma 7 viven en dos lugares
 // distintos a proposito, porque Supabase expone dos poolers con roles distintos:
 //
@@ -20,4 +16,135 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+}
+
+// ============================================================================
+// MULTI-TENANT
+// ============================================================================
+//
+// Una sola base, separacion logica por `tenantId`. Todo modelo de negocio que
+// se agregue mas adelante (Property, Lead, Appraisal, Document...) DEBE tener
+// un campo `tenantId` y su relacion a Tenant, porque la capa de acceso a datos
+// (src/lib/db/tenant-client.ts) inyecta ese filtro automaticamente y un modelo
+// sin ese campo se le escapa.
+
+/// Cada inmobiliaria que contrata el SaaS.
+model Tenant {
+  id String @id @default(cuid())
+
+  /// Nombre comercial, se muestra en la landing y en el panel.
+  name String
+
+  /// Subdominio: `<subdomain>.dominio.com`. Lo elige el cliente al registrarse.
+  /// Se guarda siempre en minusculas — ver normalizeHost() en src/lib/tenant.
+  subdomain String @unique
+
+  /// Dominio propio del cliente, si conecto uno (Fase 6). Sin protocolo ni www.
+  /// Nullable y unico a la vez: Postgres permite multiples NULL en un indice
+  /// unico, asi que muchos tenants pueden no tener dominio custom.
+  customDomain String? @unique
+
+  status TenantStatus @default(ACTIVE)
+
+  users   User[]
+  modules TenantModule[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("tenants")
+}
+
+enum TenantStatus {
+  /// Operativo.
+  ACTIVE
+  /// Suspendido por el super-admin (falta de pago, abuso). La landing y el
+  /// panel dejan de responder, pero los datos se conservan.
+  SUSPENDED
+
+  @@map("tenant_status")
+}
+
+/// Usuario del sistema.
+///
+/// En la Fase 2 este modelo pasa a ser el "profile" vinculado a `auth.users`
+/// de Supabase Auth, a traves de `authUserId`. Se modela desde ahora como una
+/// sola tabla para no tener que migrar datos entre dos tablas que representan
+/// lo mismo. Ver D-021.
+model User {
+  id String @id @default(cuid())
+
+  email String
+  name  String?
+  role  UserRole
+
+  /// UUID de `auth.users` de Supabase. Nullable porque en la Fase 1 todavia no
+  /// hay autenticacion: los usuarios del seed existen sin cuenta asociada.
+  /// En la Fase 2 se completa al registrarse.
+  authUserId String? @unique
+
+  /// NULL solo para SUPER_ADMIN, que no pertenece a ningun tenant.
+  /// La coherencia entre `role` y `tenantId` la valida la aplicacion, no la
+  /// base: Postgres no expresa "nullable si y solo si el rol es X" sin un
+  /// CHECK constraint, que Prisma no modela de forma portable.
+  tenantId String?
+  tenant   Tenant? @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /// El email es unico DENTRO de cada tenant, no globalmente: la misma persona
+  /// puede ser agente en dos inmobiliarias distintas con el mismo mail.
+  @@unique([tenantId, email])
+  @@index([tenantId])
+  @@map("users")
+}
+
+enum UserRole {
+  /// DiseArte. Gestiona tenants, planes y modulos. No pertenece a un tenant.
+  SUPER_ADMIN
+  /// Dueño de la inmobiliaria. Administra su tenant y sus usuarios.
+  TENANT_ADMIN
+  /// Agente. Permisos acotados dentro de su tenant.
+  TENANT_USER
+
+  @@map("user_role")
+}
+
+/// Modulo habilitado para un tenant.
+///
+/// El super-admin activa y desactiva modulos por tenant segun el plan
+/// contratado (Fase 5). Un modulo ausente de esta tabla se considera
+/// deshabilitado: no hace falta crear filas para lo que no esta activo.
+model TenantModule {
+  id String @id @default(cuid())
+
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  module  ModuleKey
+  enabled Boolean   @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([tenantId, module])
+  @@index([tenantId])
+  @@map("tenant_modules")
+}
+
+/// Modulos habilitables. Se agregan a medida que se construyen las fases.
+enum ModuleKey {
+  /// CRUD de propiedades (Fase 3).
+  PROPERTIES
+  /// Bandeja de consultas y leads (Fase 3).
+  LEADS
+  /// Solicitudes de tasacion (Fase 3).
+  APPRAISALS
+  /// Documentacion por propiedad/operacion (Fase 3).
+  DOCUMENTS
+  /// Constructor visual de la landing (Fase 4).
+  LANDING_BUILDER
+
+  @@map("module_key")
 }
