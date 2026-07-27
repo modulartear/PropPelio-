@@ -18,12 +18,12 @@ landing pública personalizable por cliente con un builder visual tipo Elementor
 | UI runtime    | React 19.1.0                 | ✅ Instalado                            |
 | Estilos       | Tailwind CSS v4              | ✅ Instalado                            |
 | Componentes   | shadcn/ui                    | ❌ No instalado (no es tarea de Fase 0) |
-| Base de datos | Postgres (Supabase)          | ✅ Proyecto creado (sa-east-1)          |
+| Base de datos | Postgres (Supabase)          | ✅ Conectado y verificado (sa-east-1)   |
 | ORM           | Prisma 7.9.0                 | ✅ Configurado (sin modelos todavía)    |
 | Auth          | Supabase Auth                | ⏳ Cliente listo, sin usar (Fase 2)     |
 | Storage       | Supabase Storage             | ⏳ Cliente listo, sin usar (Fase 3)     |
 | Hosting / CI  | Vercel                       | ✅ Conectado y deployando               |
-| Entorno dev   | GitHub Codespaces            | ⏳ Devcontainer escrito, sin verificar  |
+| Entorno dev   | GitHub Codespaces            | ✅ Devcontainer verificado              |
 
 Ver `docs/decisiones.md` para el porqué de cada versión fijada.
 

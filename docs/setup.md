@@ -10,20 +10,20 @@ no se instala ni se corre nada en una máquina local.**
 
 ## 1. Estado actual del setup (Fase 0)
 
-| #   | Tarea                                                          | Estado                                             | Quién   |
-| --- | -------------------------------------------------------------- | -------------------------------------------------- | ------- |
-| 1   | Repo privado en GitHub                                         | ✅ Hecho (`modulartear/PropPelio-`)                | —       |
-| 1b  | Habilitar Codespaces sobre el repo                             | ⏳ PENDIENTE                                       | Usuario |
-| 2   | Scaffolding Next.js (TS, App Router, Tailwind, ESLint, `src/`) | ✅ Hecho                                           | Claude  |
-| 3   | `devcontainer.json`                                            | ✅ Escrito — ⚠️ sin verificar en un Codespace real | Claude  |
-| 4   | Prettier + ESLint                                              | ✅ Hecho                                           | Claude  |
-| 5   | Proyecto en Supabase + credenciales                            | ✅ Proyecto creado en `sa-east-1`                  | Usuario |
-| 6   | Prisma apuntando a Supabase                                    | ✅ Hecho — ⚠️ sin conectar a la DB real            | Claude  |
-| 7   | `@supabase/supabase-js` (Auth + Storage)                       | ✅ Hecho                                           | Claude  |
-| 8   | Env vars como Codespaces secrets + Vercel                      | ✅ Contrato definido — ⏳ falta cargarlas          | Ambos   |
-| 9   | Repo conectado a Vercel + deploy "hello world"                 | ✅ Hecho — `prop-pelio.vercel.app`                 | Usuario |
-| 10  | Dominio raíz + wildcard `*.dominio.com` en Vercel              | ⏳ PENDIENTE                                       | Usuario |
-| 11  | Documentación en `/docs`                                       | 🔄 En curso (este archivo)                         | Claude  |
+| #   | Tarea                                                          | Estado                                           | Quién   |
+| --- | -------------------------------------------------------------- | ------------------------------------------------ | ------- |
+| 1   | Repo privado en GitHub                                         | ✅ Hecho (`modulartear/PropPelio-`)              | —       |
+| 1b  | Habilitar Codespaces sobre el repo                             | ✅ Hecho                                         | Usuario |
+| 2   | Scaffolding Next.js (TS, App Router, Tailwind, ESLint, `src/`) | ✅ Hecho                                         | Claude  |
+| 3   | `devcontainer.json`                                            | ✅ Hecho y probado en un Codespace               | Claude  |
+| 4   | Prettier + ESLint                                              | ✅ Hecho                                         | Claude  |
+| 5   | Proyecto en Supabase + credenciales                            | ✅ Proyecto creado en `sa-east-1`                | Usuario |
+| 6   | Prisma apuntando a Supabase                                    | ✅ Hecho — conexión verificada con Prisma Studio | Claude  |
+| 7   | `@supabase/supabase-js` (Auth + Storage)                       | ✅ Hecho                                         | Claude  |
+| 8   | Env vars como Codespaces secrets + Vercel                      | ✅ Codespaces cargado — ⏳ falta Vercel          | Ambos   |
+| 9   | Repo conectado a Vercel + deploy "hello world"                 | ✅ Hecho — `prop-pelio.vercel.app`               | Usuario |
+| 10  | Dominio raíz + wildcard `*.dominio.com` en Vercel              | ⏳ PENDIENTE                                     | Usuario |
+| 11  | Documentación en `/docs`                                       | 🔄 En curso (este archivo)                       | Claude  |
 
 ---
 
@@ -38,10 +38,9 @@ no se instala ni se corre nada en una máquina local.**
    Code automáticamente — **no hace falta correr `npm install` a mano**.
 4. `npm run dev` → Codespaces expone el puerto 3000 y ofrece abrirlo en el navegador.
 
-> ⚠️ **Sin verificar todavía.** El devcontainer está escrito, pero ninguna
-> sesión lo construyó aún. La primera vez que abras un Codespace, confirmá que
-> el build termina sin errores y que `npm run dev` levanta sin pasos manuales —
-> ese es el primer punto del criterio de cierre de la Fase 0.
+> ✅ **Verificado.** Un Codespace construido con este devcontainer levanta con
+> las dependencias instaladas y el cliente de Prisma generado, sin pasos
+> manuales. `npm run db:studio` conecta contra Supabase desde ahí.
 
 ### Qué configura el devcontainer
 
@@ -225,6 +224,52 @@ con el error de `env.ts` nombrando la variable que falta.
 ---
 
 ## 7. Problemas conocidos
+
+### `The provided database URL is not valid` al correr Prisma
+
+Tres causas, y en la práctica aparecen combinadas. Diagnóstico sin exponer la
+contraseña — pegar en la terminal:
+
+```bash
+u="${DIRECT_URL:-}"
+echo "longitud       : ${#u}"
+echo "primeros 12    : '${u:0:12}'"
+echo "tiene comillas : $(case "$u" in *'"'*) echo SI;; *) echo no;; esac)"
+echo "placeholder    : $(case "$u" in *'YOUR-PASSWORD'*) echo SI;; *) echo no;; esac)"
+echo "arrobas (@)    : $(awk -v s="$u" 'BEGIN{print gsub(/@/,"",s)}')"
+```
+
+**1. Se copió la línea entera en vez del valor.** La solapa ORM → Prisma de
+Supabase muestra el archivo completo, con nombre de variable y comillas:
+
+```bash
+DIRECT_URL="postgres://..."
+```
+
+GitHub guarda los secrets **literalmente** — no saca comillas ni interpreta
+nada. El valor tiene que empezar en `postgres://` y nada más.
+_Se detecta con:_ `primeros 12` distinto de `postgresql:/`, o `tiene comillas: SI`.
+
+**2. Quedó el placeholder.** `[YOUR-PASSWORD]`, con corchetes incluidos, hay que
+reemplazarlo por la contraseña real.
+_Se detecta con:_ `placeholder: SI`.
+
+**3. La contraseña tiene caracteres que rompen la URL.** El `@` separa
+credenciales de host, así que uno dentro de la contraseña desplaza el parseo.
+_Se detecta con:_ `arrobas` distinto de `1`.
+
+Encodear: `@`→`%40`, `#`→`%23`, `/`→`%2F`, `?`→`%3F`, `:`→`%3A`, `%`→`%25`.
+Ojo: `%40` **no** contiene un `@` literal, así que tras encodear el contador
+vuelve a marcar `1`, que es lo correcto.
+
+> **Mejor que encodear:** resetear la contraseña desde Supabase → Project
+> Settings → Database → Reset database password → **Generate a password**. Las
+> generadas no traen caracteres conflictivos, y esa connection string hay que
+> rearmarla al menos una vez más al cargarla en Vercel.
+
+**Después de cambiar cualquier secret hay que reconstruir el Codespace.** Se
+inyectan como variables de entorno al arrancar el contenedor; uno ya abierto
+sigue con los valores viejos.
 
 ### Un Codespace nuevo puede arrancar con el repo desactualizado
 
