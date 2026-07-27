@@ -319,3 +319,84 @@ consecuencias mecánicas de una decisión previa, sin margen real de elección.
   3. En el registrador: `A` / `CNAME` del raíz apuntando a Vercel, y un `CNAME`
      `*` para el wildcard.
   4. El SSL del wildcard lo provisiona Vercel automáticamente tras verificar.
+
+## D-019 — El middleware resuelve el HOST, no el `tenantId`
+
+- **Fecha:** 2026-07-27
+- **Fase:** 1
+- **Decidió:** Claude (forzado por el runtime)
+- **Contexto:** El plan dice que el middleware haga _rewrite_ a
+  `/tenants/[tenantId]/...`. Eso exige un query a la base para traducir el host
+  a un id.
+- **Problema:** el middleware de Next corre en el **edge runtime**, donde
+  Prisma no funciona.
+- **Decisión:** el middleware reescribe con el **host** —
+  `/tenants/<por>/<valor>/...` — y el `tenantId` se resuelve del lado del
+  servidor, ya en Node, en `src/lib/tenant/resolve.ts`.
+- **Alternativa descartada:** `experimental.nodeMiddleware` de Next 15. No se
+  pone una bandera experimental en la base de un proyecto de tres meses.
+- **Consecuencia positiva:** el middleware no toca la base en ningún request.
+  Los subdominios reservados y los hosts inválidos se rechazan con 404 sin
+  gastar una conexión.
+
+## D-020 — La búsqueda del tenant viaja en dos segmentos de URL
+
+- **Fecha:** 2026-07-27
+- **Fase:** 1
+- **Decidió:** Claude
+- **Decisión:** El middleware reescribe a `/tenants/<por>/<valor>` (por ejemplo
+  `/tenants/subdomain/tenant-a`) en vez de a un solo segmento con separador.
+- **Motivo:** un segmento único obligaría a un separador (`s:tenant-a`), y con
+  él a encodear y desencodear. Cada encoding es una oportunidad de error en el
+  camino crítico del aislamiento entre tenants.
+- **Salvaguarda:** el segmento `por` viene de la URL y alguien puede pedir esa
+  ruta a mano, así que se valida contra los dos valores permitidos antes de
+  usarlo como nombre de campo en el query.
+
+## D-021 — `User` de Fase 1 es el `profiles` de Fase 2
+
+- **Fecha:** 2026-07-27
+- **Fase:** 1
+- **Decidió:** Claude (consultado y avisado)
+- **Contexto:** El plan pide `User` en la Fase 1 y una tabla `profiles`
+  vinculada a `auth.users` de Supabase en la Fase 2. Son la misma entidad.
+- **Decisión:** una sola tabla `users`, con `authUserId` nullable que en la
+  Fase 2 se completa con el UUID de Supabase Auth.
+- **Motivo:** dos tablas para lo mismo obligaría a migrar datos entre ellas al
+  llegar a la Fase 2, con el riesgo que eso implica sobre usuarios ya creados.
+- **Detalle:** el email es único **dentro** de cada tenant, no globalmente: la
+  misma persona puede ser agente en dos inmobiliarias con el mismo mail.
+
+## D-022 — El cliente de Prisma se instancia en el primer uso, no al importar
+
+- **Fecha:** 2026-07-27
+- **Fase:** 1
+- **Decidió:** Claude (obligado por un fallo real)
+- **Contexto:** Con la instanciación al importar el módulo, `next build` fallaba
+  con `Falta la variable de entorno DATABASE_URL`: al recolectar los datos de
+  las páginas, Next evalúa los módulos, y crear el cliente exige la URL.
+- **Decisión:** `prisma` es un `Proxy` que construye el cliente real en el
+  primer acceso a una propiedad.
+- **Motivo:** compilar no debería requerir credenciales de base de datos. Sin
+  esto, cualquier CI sin secrets no puede buildear, y un deploy de Vercel al que
+  todavía no se le cargaron las variables falla en build en vez de en runtime.
+- **Detalle:** el Proxy bindea las funciones al cliente real para no perder el
+  `this`.
+
+## D-023 — `tsx` para correr el seed y futuros scripts
+
+- **Fecha:** 2026-07-27
+- **Fase:** 1
+- **Decidió:** Claude (consultado sin respuesta; queda abierto a revisión)
+- **Contexto:** El seed está en TypeScript e importa el cliente generado de
+  Prisma, que usa imports sin extensión. El runner nativo de Node
+  (`--experimental-strip-types`) no puede resolverlos: falla con
+  `ERR_MODULE_NOT_FOUND` en `src/generated/prisma/enums`.
+- **Decisión:** `tsx` como devDependency. `npm run db:seed`.
+- **Motivo:** es lo que documenta Prisma para seeds. Las alternativas eran peores:
+  seed en SQL plano pierde el tipado y hay que mantenerlo a mano contra el
+  schema; compilar con `tsc` requiere un tsconfig aparte, un paso de build y
+  limpieza posterior.
+- **Costo / reversibilidad:** Baja. Es una devDependency, no entra al bundle.
+- **Nota:** los **tests** no usan `tsx` — corren con el runner nativo de Node,
+  sin dependencias, porque no importan el cliente generado.

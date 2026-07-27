@@ -4,8 +4,9 @@ SaaS multi-tenant para inmobiliarias: panel administrativo estilo Tokko Broker m
 landing pública personalizable por cliente con un builder visual tipo Elementor.
 
 > Este documento describe el diseño de referencia del proyecto completo, pero
-> **marca explícitamente qué está implementado y qué no**. En Fase 0 casi nada
-> lo está: sólo existe el proyecto base.
+> **marca explícitamente qué está implementado y qué no**. Al cierre de la
+> Fase 1 existen el proyecto base y el núcleo multi-tenant; no hay todavía
+> autenticación ni lógica de negocio.
 
 ---
 
@@ -19,7 +20,7 @@ landing pública personalizable por cliente con un builder visual tipo Elementor
 | Estilos       | Tailwind CSS v4              | ✅ Instalado                            |
 | Componentes   | shadcn/ui                    | ❌ No instalado (no es tarea de Fase 0) |
 | Base de datos | Postgres (Supabase)          | ✅ Conectado y verificado (sa-east-1)   |
-| ORM           | Prisma 7.9.0                 | ✅ Configurado (sin modelos todavía)    |
+| ORM           | Prisma 7.9.0                 | ✅ Con modelos multi-tenant             |
 | Auth          | Supabase Auth                | ⏳ Cliente listo, sin usar (Fase 2)     |
 | Storage       | Supabase Storage             | ⏳ Cliente listo, sin usar (Fase 3)     |
 | Hosting / CI  | Vercel                       | ✅ Conectado y deployando               |
@@ -34,10 +35,10 @@ Ver `docs/decisiones.md` para el porqué de cada versión fijada.
 Supabase expone la misma base por **dos poolers distintos**, y usamos los dos
 porque tienen usos incompatibles entre sí.
 
-| Variable       | Pooler      | Puerto | Quién la usa                          |
-| -------------- | ----------- | ------ | ------------------------------------- |
-| `DATABASE_URL` | Transaction | `6543` | La app en runtime (`src/lib/db.ts`)   |
-| `DIRECT_URL`   | Session     | `5432` | El CLI de Prisma (`prisma.config.ts`) |
+| Variable       | Pooler      | Puerto | Quién la usa                               |
+| -------------- | ----------- | ------ | ------------------------------------------ |
+| `DATABASE_URL` | Transaction | `6543` | La app en runtime (`src/lib/db/client.ts`) |
+| `DIRECT_URL`   | Session     | `5432` | El CLI de Prisma (`prisma.config.ts`)      |
 
 **Por qué no alcanza con una sola:**
 
@@ -60,7 +61,7 @@ porque tienen usos incompatibles entre sí.
 Prisma 7 eliminó el campo `directUrl` del schema. Ahora:
 
 - `prisma.config.ts` → `datasource.url` → **`DIRECT_URL`** (CLI y migraciones).
-- `src/lib/db.ts` → driver adapter `PrismaPg` → **`DATABASE_URL`** (runtime).
+- `src/lib/db/client.ts` → driver adapter `PrismaPg` → **`DATABASE_URL`** (runtime).
 
 `prisma/schema.prisma` **no declara ninguna URL**. Es a propósito.
 
@@ -68,15 +69,18 @@ Prisma 7 eliminó el campo `directUrl` del schema. Ahora:
 
 ## 1c. Archivos de la capa de datos
 
-| Archivo                      | Rol                                                                    |
-| ---------------------------- | ---------------------------------------------------------------------- |
-| `prisma/schema.prisma`       | Modelos. En Fase 0 está vacío de modelos: sólo generator + datasource. |
-| `prisma.config.ts`           | Config del CLI. Apunta a `DIRECT_URL`.                                 |
-| `src/lib/env.ts`             | Único punto de lectura de env vars. Falla temprano y dice cuál falta.  |
-| `src/lib/db.ts`              | Cliente Prisma singleton con el adapter `PrismaPg`.                    |
-| `src/lib/supabase/client.ts` | Cliente de Supabase para el browser (publishable key).                 |
-| `src/lib/supabase/server.ts` | Cliente administrativo (secret key). **Bypasea RLS.**                  |
-| `src/generated/prisma/`      | Cliente generado. **Gitignoreado** — se regenera con `postinstall`.    |
+| Archivo                       | Rol                                                                   |
+| ----------------------------- | --------------------------------------------------------------------- |
+| `prisma/schema.prisma`        | Modelos: `Tenant`, `User`, `TenantModule`.                            |
+| `prisma.config.ts`            | Config del CLI. Apunta a `DIRECT_URL`.                                |
+| `src/lib/env.ts`              | Único punto de lectura de env vars. Falla temprano y dice cuál falta. |
+| `src/lib/db/client.ts`        | Cliente Prisma crudo, instanciado en el primer uso. **Sin filtro.**   |
+| `src/lib/db/tenant-scope.ts`  | Inyección del `tenantId`. Función pura, testeada.                     |
+| `src/lib/db/tenant-client.ts` | `forTenant(id)` — cliente scopeado a un tenant.                       |
+| `src/lib/db/tenants.ts`       | Único acceso sin filtro fuera del scope: resolver el host.            |
+| `src/lib/supabase/client.ts`  | Cliente de Supabase para el browser (publishable key).                |
+| `src/lib/supabase/server.ts`  | Cliente administrativo (secret key). **Bypasea RLS.**                 |
+| `src/generated/prisma/`       | Cliente generado. **Gitignoreado** — se regenera con `postinstall`.   |
 
 ### Sobre `src/lib/supabase/server.ts`
 
@@ -99,12 +103,13 @@ schema ni base por tenant.
 
 Dos capas de aislamiento, independientes entre sí:
 
-1. **Capa de aplicación (Prisma):** todo query de negocio pasa por un wrapper
-   que fuerza el filtro `tenantId`. El objetivo de diseño es que sea
-   _imposible olvidarse el filtro por error_, no sólo que esté por convención.
-2. **Capa de base de datos (RLS de Supabase):** políticas de Row Level Security
-   que filtran por el `tenantId` del usuario autenticado. Es la red de
-   contención si la capa 1 falla.
+1. **Capa de aplicación (Prisma):** ✅ implementada. `forTenant(tenantId)`
+   devuelve un cliente que inyecta el filtro en todo query. Una regla de ESLint
+   bloquea importar el cliente crudo fuera de `src/lib/db/**`, así saltear la
+   capa es un error de lint y no una fuga que se descubre en producción.
+2. **Capa de base de datos (RLS de Supabase):** ⏳ Fase 2. Las políticas filtran
+   por el usuario autenticado, que todavía no existe. Es la red de contención si
+   la capa 1 falla.
 
 ### Resolución del tenant
 
@@ -116,7 +121,14 @@ El `middleware.ts` lee el header `Host` y decide:
 
 Resuelto el tenant, hace _rewrite_ a una ruta interna con el `tenantId`.
 
-> ❌ Nada de esto está implementado todavía. Es el objetivo de la Fase 1.
+> ✅ Implementado en la Fase 1. El detalle del recorrido de un request, las
+> garantías de la capa de aislamiento y cómo verificarlo están en
+> [`docs/fase-1-multitenant.md`](fase-1-multitenant.md).
+>
+> Una precisión sobre el diagrama: el middleware resuelve el **host**, no el
+> `tenantId` — corre en el edge runtime, donde Prisma no funciona. Reescribe a
+> `/tenants/<por>/<valor>/...` y el `tenantId` se resuelve del lado del
+> servidor. Ver D-019.
 
 ---
 
@@ -147,23 +159,34 @@ Resuelto el tenant, hace _rewrite_ a una ruta interna con el `tenantId`.
 
 ```
 /src
-  /app                    → layout.tsx + page.tsx (hello world de Fase 0)
+  middleware.ts           → resolución de tenant por host (edge)
+  /app
+    page.tsx              → sitio de marketing (dominio raíz)
+    /tenants/[por]/[valor] → landing genérica del tenant
   /lib
     env.ts                → lectura tipada de variables de entorno
-    db.ts                 → cliente Prisma con adapter PrismaPg
+    /db
+      client.ts           → cliente Prisma crudo (lazy). SIN filtro
+      tenant-scope.ts     → inyección del tenantId. Función pura, testeada
+      tenant-client.ts    → forTenant(): cliente scopeado
+      tenants.ts          → único acceso sin filtro, para resolver el host
+      index.ts            → punto de entrada de la capa
+    /tenant
+      host.ts             → clasificación del host. Función pura, testeada
+      resolve.ts          → getTenantFromRequest(), requireTenant()
     /supabase
       client.ts           → cliente browser (publishable key)
       server.ts           → cliente admin (secret key, bypasea RLS)
   /generated/prisma       → cliente generado, gitignoreado
 /prisma
-  schema.prisma           → sin modelos todavía
+  schema.prisma           → Tenant, User, TenantModule
+  seed.ts                 → tenants de prueba
+  /migrations
 prisma.config.ts
 ```
 
-El resto de las carpetas se van creando fase por fase, cuando hay código real
-que poner adentro. Nota: el plan sugiere `/lib/db` como carpeta; por ahora es
-un solo archivo `db.ts`, y pasa a carpeta en la Fase 1 cuando entren los
-wrappers con filtro por `tenantId`.
+Las carpetas que faltan (`/components`, `/lib/builder`, `/super-admin`) se van
+creando fase por fase, cuando hay código real que poner adentro.
 
 ---
 
@@ -175,7 +198,8 @@ wrappers con filtro por `tenantId`.
 | `TENANT_ADMIN` | Dueño de la inmobiliaria. Gestiona su tenant y sus usuarios. |
 | `TENANT_USER`  | Agente. Permisos acotados dentro de su tenant.               |
 
-> ❌ No implementado. Fase 2.
+> ✅ Modelados en el schema (enum `UserRole`). La **autorización** por rol es de
+> la Fase 2 — hoy los roles existen como dato, sin nada que los haga cumplir.
 
 ---
 

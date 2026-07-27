@@ -3,7 +3,7 @@
 SaaS multi-tenant para inmobiliarias: panel administrativo estilo Tokko Broker más
 landing pública personalizable por cliente con un builder visual tipo Elementor.
 
-**Estado: Fase 0 (setup y fundamentos) — en curso.** Todavía no hay lógica de negocio.
+**Estado: Fase 1 (núcleo multi-tenant).** Resolución de tenant por subdominio y dominio propio, con aislamiento de datos forzado. Todavía no hay autenticación ni lógica de negocio.
 
 ## Stack
 
@@ -15,9 +15,12 @@ Next.js 15 (App Router) · TypeScript · Tailwind CSS v4 · Prisma · Supabase (
 
 ```bash
 npm install
-npm run dev     # http://localhost:3000
+npm run dev       # http://localhost:3000
 npm run build
 npm run lint
+npm test          # tests, sin dependencias externas
+npm run db:deploy # aplica migraciones
+npm run db:seed   # tenants de prueba
 ```
 
 ## Documentación
