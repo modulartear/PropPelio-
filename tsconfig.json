@@ -11,6 +11,11 @@
     "moduleResolution": "bundler",
     "resolveJsonModule": true,
     "isolatedModules": true,
+    // Los tests corren con el runner nativo de Node (`node --test`), que hace
+    // type stripping y por eso EXIGE la extension .ts en los imports. Sin esta
+    // opcion, tsc rechaza esos imports. Es seguro porque noEmit esta activo:
+    // TypeScript nunca genera los .js donde la extension seria incorrecta.
+    "allowImportingTsExtensions": true,
     "jsx": "preserve",
     "incremental": true,
     "plugins": [

@@ -44,10 +44,13 @@ if (process.env.NODE_ENV !== "production") {
 }
 
 /**
- * NOTA PARA LA FASE 1
+ * ⚠️ ESTE CLIENTE NO FILTRA POR TENANT. Ve la base entera.
  *
- * Este cliente es el acceso CRUDO a la base y no filtra por tenant. En la
- * Fase 1 se agrega encima un wrapper que fuerza el filtro `tenantId` en todo
- * query de negocio, y a partir de ahi este export deberia usarse solo desde
- * esa capa — no directamente desde Server Components o Server Actions.
+ * Para cualquier dato que pertenezca a un tenant, usar `forTenant(tenantId)`
+ * de `@/lib/db` — devuelve un cliente que inyecta el filtro solo.
+ *
+ * Este export directo queda reservado a operaciones que legitimamente cruzan
+ * tenants: resolver un tenant por host, el panel de super-admin (Fase 5),
+ * seeds y migraciones. Una regla de ESLint bloquea su import fuera de
+ * `src/lib/db/**` para que usarlo sea una decision consciente y no un olvido.
  */
