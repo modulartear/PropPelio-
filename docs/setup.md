@@ -192,7 +192,8 @@ aparecer como `undefined` en medio de un query. Ver D-014.
 
 El repo está conectado a Vercel. **Producción: https://prop-pelio.vercel.app**
 
-- Push a cualquier rama → **preview deployment** con URL propia.
+- Push a cualquier rama → **preview deployment** con URL propia. ✅ Verificado
+  con el commit `d61d046`: status `success` de Vercel en el PR #1.
 - Push a `main` → **deploy de producción**.
 
 ### Cómo quedó configurado
