@@ -21,7 +21,7 @@ no se instala ni se corre nada en una máquina local.**
 | 6   | Prisma apuntando a Supabase                                    | ✅ Hecho — ⚠️ sin conectar a la DB real            | Claude  |
 | 7   | `@supabase/supabase-js` (Auth + Storage)                       | ✅ Hecho                                           | Claude  |
 | 8   | Env vars como Codespaces secrets + Vercel                      | ✅ Contrato definido — ⏳ falta cargarlas          | Ambos   |
-| 9   | Repo conectado a Vercel + deploy "hello world"                 | ⏳ PENDIENTE                                       | Usuario |
+| 9   | Repo conectado a Vercel + deploy "hello world"                 | ✅ Hecho — `prop-pelio.vercel.app`                 | Usuario |
 | 10  | Dominio raíz + wildcard `*.dominio.com` en Vercel              | ⏳ PENDIENTE                                       | Usuario |
 | 11  | Documentación en `/docs`                                       | 🔄 En curso (este archivo)                         | Claude  |
 
@@ -190,22 +190,30 @@ aparecer como `undefined` en medio de un query. Ver D-014.
 
 ## 6. Deploys
 
-> ⏳ PENDIENTE (tarea 9). El repo todavía **no** está conectado a Vercel.
-> La página "hello world" que va a servir para verificarlo ya está en
-> `src/app/page.tsx`.
-
-Modelo previsto una vez conectado:
+El repo está conectado a Vercel. **Producción: https://prop-pelio.vercel.app**
 
 - Push a cualquier rama → **preview deployment** con URL propia.
 - Push a `main` → **deploy de producción**.
 
-### Pasos para conectarlo
+### Cómo quedó configurado
 
-1. [vercel.com/new](https://vercel.com/new) → **Import Git Repository** → elegir `PropPelio-`.
-2. Vercel autodetecta Next.js y npm. **No hay que cambiar** build command ni output directory.
-3. Deploy. Debería mostrar la página de Fase 0.
-4. Recién después cargar las Environment Variables (sección 5) — el hello world
-   no necesita ninguna.
+Vercel autodetecta Next.js y npm; no se cambió build command, output directory
+ni install command. El pipeline es:
+
+```
+npm install  →  postinstall: prisma generate  →  next build
+```
+
+Ese `postinstall` es indispensable: el cliente de Prisma se genera a
+`src/generated/prisma`, que está gitignoreado. Sin él, el build de Vercel se
+cae al no encontrar el cliente.
+
+### Variables de entorno en Vercel
+
+El deploy inicial se hizo **sin ninguna variable cargada**, a propósito: la
+página de Fase 0 no importa `src/lib/env.ts`. En cuanto haya código que sí las
+use (Fase 1 en adelante), hay que cargarlas antes de deployar o el build falla
+con el error de `env.ts` nombrando la variable que falta.
 
 ---
 

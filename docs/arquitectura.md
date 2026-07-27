@@ -22,7 +22,7 @@ landing pública personalizable por cliente con un builder visual tipo Elementor
 | ORM           | Prisma 7.9.0                 | ✅ Configurado (sin modelos todavía)    |
 | Auth          | Supabase Auth                | ⏳ Cliente listo, sin usar (Fase 2)     |
 | Storage       | Supabase Storage             | ⏳ Cliente listo, sin usar (Fase 3)     |
-| Hosting / CI  | Vercel                       | ❌ No conectado                         |
+| Hosting / CI  | Vercel                       | ✅ Conectado y deployando               |
 | Entorno dev   | GitHub Codespaces            | ⏳ Devcontainer escrito, sin verificar  |
 
 Ver `docs/decisiones.md` para el porqué de cada versión fijada.
