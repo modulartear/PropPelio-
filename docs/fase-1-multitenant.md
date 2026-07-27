@@ -154,9 +154,19 @@ Con `npm run dev` corriendo:
 | http://noexiste.localhost:3000 | **404**                            |
 | http://api.localhost:3000      | **404** (subdominio reservado)     |
 
-> Los navegadores modernos resuelven `*.localhost` a `127.0.0.1` sin tocar el
-> archivo hosts. En Codespaces hay que usar el reenvío de puertos, o probar con
-> `curl` como abajo.
+> ⚠️ **En Codespaces, desde el navegador sólo se ve el sitio de marketing.**
+>
+> La URL que abre Codespaces (`<algo>-3000.app.github.dev`) pasa por su proxy de
+> reenvío de puertos, que le entrega a Next `Host: localhost:3000`. El
+> middleware lo clasifica como dominio raíz y sirve el marketing — correcto,
+> pero significa que **los subdominios no se pueden probar desde el navegador**:
+> no existe `tenant-a.<algo>.app.github.dev`, y aunque existiera, el proxy
+> reescribiría el Host igual.
+>
+> Las pruebas de tenant se hacen con `curl` desde la terminal del Codespace,
+> mandando el `Host` a mano, como abajo. En una máquina con el proyecto corriendo
+> local, en cambio, los navegadores resuelven `*.localhost` a `127.0.0.1` solos y
+> las URLs de la tabla funcionan tal cual.
 
 **Desde la terminal**, que funciona igual en el Codespace:
 
