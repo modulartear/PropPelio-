@@ -113,3 +113,50 @@ consecuencias mecánicas de una decisión previa, sin margen real de elección.
   a mano para depurar. Un string JSON encadenado con `&&` no.
 - **Costo / reversibilidad:** Nula.
 
+## D-008 — Prettier con `eslint-config-prettier` + `prettier-plugin-tailwindcss`
+
+- **Fecha:** 2026-07-27
+- **Fase:** 0
+- **Decidió:** Usuario (consultado)
+- **Contexto:** El plan pide "Prettier + ESLint con reglas del equipo" pero no
+  lista paquetes. Prettier solo no alcanza en este stack.
+- **Decisión:** Instalar `prettier`, `eslint-config-prettier` y
+  `prettier-plugin-tailwindcss` como devDependencies.
+- **Motivo:**
+  - `eslint-config-prettier` apaga las reglas de formato de ESLint que chocan
+    con Prettier. Sin esto las dos herramientas se contradicen y el archivo
+    alterna entre dos formatos en cada guardado. Va **último** en el array de
+    `eslint.config.mjs` — el orden es funcional, no estético.
+  - `prettier-plugin-tailwindcss` ordena las clases de Tailwind en el orden
+    oficial. En la Fase 4 (builder) va a haber decenas de componentes de bloque
+    con listas largas de clases; sin esto los diffs se llenan de reordenamientos
+    manuales que tapan los cambios reales.
+- **Nota de Tailwind v4:** el plugin necesita `tailwindStylesheet` apuntando a
+  `./src/app/globals.css`, porque en v4 no existe `tailwind.config.ts` de donde
+  leer el tema. Si en algún momento se mueve `globals.css`, hay que actualizar
+  esa ruta o el ordenamiento de clases deja de funcionar en silencio.
+- **Costo / reversibilidad:** Baja.
+
+## D-009 — Sin hook de pre-commit en Fase 0
+
+- **Fecha:** 2026-07-27
+- **Fase:** 0
+- **Decidió:** Usuario (consultado)
+- **Decisión:** No instalar husky ni lint-staged por ahora.
+- **Motivo:** El plan no lo pide en Fase 0 y el `formatOnSave` del devcontainer
+  ya cubre el caso habitual, que es editar dentro del Codespace. Se puede sumar
+  en la Fase 8 (hardening) si aparece código sin formatear en el repo.
+- **Riesgo asumido:** un commit hecho fuera del devcontainer puede entrar sin
+  formatear. Mitigación disponible: `npm run format:check` en CI.
+
+## D-010 — `.gitignore`: se versiona `.env.example`, nunca un `.env` real
+
+- **Fecha:** 2026-07-27
+- **Fase:** 0
+- **Decidió:** Claude (consecuencia de la regla "sin `.env` en disco" del plan)
+- **Contexto:** El `.gitignore` de `create-next-app` trae `.env*`, que también
+  ignora `.env.example`.
+- **Decisión:** Agregar la excepción `!.env.example`. Ese archivo documenta el
+  **contrato** de variables (nombres y descripción), nunca valores.
+- **Motivo:** Sin el `.env.example` versionado, el contrato de variables no
+  queda en ningún lado y hay que reconstruirlo leyendo el código.

@@ -30,8 +30,10 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
+# env files — nunca se commitea un .env con valores reales.
+# Excepcion: .env.example documenta el contrato de variables (nombres, no valores).
 .env*
+!.env.example
 
 # vercel
 .vercel

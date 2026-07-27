@@ -1,7 +1,7 @@
 # Arquitectura — PropPelio
 
-SaaS multi-tenant para inmobiliarias: panel administrativo estilo Tokko Broker
-+ landing pública personalizable por cliente con un builder visual tipo Elementor.
+SaaS multi-tenant para inmobiliarias: panel administrativo estilo Tokko Broker más
+landing pública personalizable por cliente con un builder visual tipo Elementor.
 
 > Este documento describe el diseño de referencia del proyecto completo, pero
 > **marca explícitamente qué está implementado y qué no**. En Fase 0 casi nada
@@ -11,19 +11,19 @@ SaaS multi-tenant para inmobiliarias: panel administrativo estilo Tokko Broker
 
 ## 1. Stack
 
-| Capa | Tecnología | Estado |
-|---|---|---|
-| Framework | Next.js 15.5.22 (App Router) | ✅ Instalado |
-| Lenguaje | TypeScript 5 | ✅ Instalado |
-| UI runtime | React 19.1.0 | ✅ Instalado |
-| Estilos | Tailwind CSS v4 | ✅ Instalado |
-| Componentes | shadcn/ui | ❌ No instalado (no es tarea de Fase 0) |
-| Base de datos | Postgres (Supabase) | ❌ Proyecto no creado |
-| ORM | Prisma | ❌ No instalado |
-| Auth | Supabase Auth | ❌ No configurado |
-| Storage | Supabase Storage | ❌ No configurado |
-| Hosting / CI | Vercel | ❌ No conectado |
-| Entorno dev | GitHub Codespaces | ⏳ Devcontainer pendiente |
+| Capa          | Tecnología                   | Estado                                  |
+| ------------- | ---------------------------- | --------------------------------------- |
+| Framework     | Next.js 15.5.22 (App Router) | ✅ Instalado                            |
+| Lenguaje      | TypeScript 5                 | ✅ Instalado                            |
+| UI runtime    | React 19.1.0                 | ✅ Instalado                            |
+| Estilos       | Tailwind CSS v4              | ✅ Instalado                            |
+| Componentes   | shadcn/ui                    | ❌ No instalado (no es tarea de Fase 0) |
+| Base de datos | Postgres (Supabase)          | ❌ Proyecto no creado                   |
+| ORM           | Prisma                       | ❌ No instalado                         |
+| Auth          | Supabase Auth                | ❌ No configurado                       |
+| Storage       | Supabase Storage             | ❌ No configurado                       |
+| Hosting / CI  | Vercel                       | ❌ No conectado                         |
+| Entorno dev   | GitHub Codespaces            | ⏳ Devcontainer pendiente               |
 
 Ver `docs/decisiones.md` para el porqué de cada versión fijada.
 
@@ -38,7 +38,7 @@ Dos capas de aislamiento, independientes entre sí:
 
 1. **Capa de aplicación (Prisma):** todo query de negocio pasa por un wrapper
    que fuerza el filtro `tenantId`. El objetivo de diseño es que sea
-   *imposible olvidarse el filtro por error*, no sólo que esté por convención.
+   _imposible olvidarse el filtro por error_, no sólo que esté por convención.
 2. **Capa de base de datos (RLS de Supabase):** políticas de Row Level Security
    que filtran por el `tenantId` del usuario autenticado. Es la red de
    contención si la capa 1 falla.
@@ -51,7 +51,7 @@ El `middleware.ts` lee el header `Host` y decide:
 - `www.inmobiliariax.com` → dominio propio del cliente → tenant por `customDomain`.
 - `dominio.com` (raíz) → sitio de marketing del SaaS, sin tenant.
 
-Resuelto el tenant, hace *rewrite* a una ruta interna con el `tenantId`.
+Resuelto el tenant, hace _rewrite_ a una ruta interna con el `tenantId`.
 
 > ❌ Nada de esto está implementado todavía. Es el objetivo de la Fase 1.
 
@@ -88,11 +88,11 @@ código real que poner adentro.
 
 ## 4. Roles
 
-| Rol | Alcance |
-|---|---|
-| `SUPER_ADMIN` | DiseArte. Gestiona tenants, planes, módulos y plantillas. |
+| Rol            | Alcance                                                      |
+| -------------- | ------------------------------------------------------------ |
+| `SUPER_ADMIN`  | DiseArte. Gestiona tenants, planes, módulos y plantillas.    |
 | `TENANT_ADMIN` | Dueño de la inmobiliaria. Gestiona su tenant y sus usuarios. |
-| `TENANT_USER` | Agente. Permisos acotados dentro de su tenant. |
+| `TENANT_USER`  | Agente. Permisos acotados dentro de su tenant.               |
 
 > ❌ No implementado. Fase 2.
 
