@@ -40,6 +40,23 @@ export function serverEnv() {
 }
 
 /**
+ * Dominio raiz del SaaS. Todo lo que sea `<algo>.<este dominio>` es un tenant.
+ *
+ * Tiene default en vez de ser obligatoria porque el dominio propio todavia no
+ * esta comprado (ver D-018), y sin default no habria forma de correr el
+ * proyecto. En desarrollo los tenants viven en `tenant-a.localhost:3000`.
+ *
+ * En Vercel hay que setearla al dominio real (o a la URL de Vercel mientras
+ * tanto), o el sitio entero se interpreta como dominios propios de clientes.
+ *
+ * Se lee sin `required()` a proposito: el middleware corre en el edge runtime
+ * y no deberia tirar excepciones por configuracion faltante en cada request.
+ */
+export function rootDomain(): string {
+  return process.env.NEXT_PUBLIC_ROOT_DOMAIN?.trim() || "localhost:3000";
+}
+
+/**
  * Variables publicas. Viajan en el bundle del browser por diseño.
  *
  * Tambien es funcion, y por un motivo concreto: si fuera un objeto de modulo,
