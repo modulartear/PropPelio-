@@ -226,6 +226,39 @@ con el error de `env.ts` nombrando la variable que falta.
 
 ## 7. Problemas conocidos
 
+### Un Codespace nuevo puede arrancar con el repo desactualizado
+
+**Síntoma:** creás un Codespace, y el explorador muestra sólo `README.md` con
+contenido viejo. El `postCreateCommand` no corre, no aparecen las extensiones, y
+el proyecto no está.
+
+**Cómo confirmarlo,** en la terminal del Codespace:
+
+```bash
+git log --oneline -3
+```
+
+Si muestra un commit viejo **y además lo marca como `origin/main`**, ahí está el
+problema: el Codespace arrancó con las referencias remotas cacheadas, así que
+`git status` lo reporta "en sync" y no avisa que está atrasado.
+
+**Causa:** Codespaces puede crear el contenedor a partir de una imagen cacheada
+de un estado anterior del repositorio. Es comportamiento de la plataforma, no
+del `devcontainer.json`.
+
+**Solución** (asegurate de no tener cambios sin commitear — `reset --hard` los
+borra):
+
+```bash
+git fetch origin main
+git reset --hard origin/main
+```
+
+Y después, **imprescindible**: `Ctrl+Shift+P` → **Codespaces: Rebuild
+Container**. Traer los archivos no alcanza — el contenedor ya se construyó sin
+leer `.devcontainer/`, así que Node 22, las extensiones y el `post-create.sh`
+sólo se aplican al reconstruirlo.
+
 ### ✅ RESUELTO — `git push` devolvía 403 aunque la lectura funcionaba
 
 **Síntoma:** `git push` devolvía `403 Forbidden` en `git-receive-pack`, y la API
