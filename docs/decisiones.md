@@ -249,3 +249,22 @@ consecuencias mecánicas de una decisión previa, sin margen real de elección.
   que es donde aparece ese requerimiento.
 - **Motivo:** No adelantar trabajo de fases posteriores. Instalarlo ahora
   significaría dejar clientes de sesión sin usar y sin poder probar.
+
+## D-016 — Se descartan las skills que instala `prisma init`
+
+- **Fecha:** 2026-07-27
+- **Fase:** 0
+- **Decidió:** Claude
+- **Contexto:** `prisma init` (v7) instala ~90 archivos de documentación para
+  asistentes de código en `.claude/skills/`, `.agents/skills/` y
+  `.windsurf/skills/`, más un `skills-lock.json`. Los de `.claude/` y
+  `.windsurf/` son **symlinks** a `.agents/`.
+- **Decisión:** Borrarlos todos y gitignorearlos.
+- **Motivo:** No los pidió nadie, `.windsurf` y `.agents` son de herramientas
+  que el proyecto no usa, y vendorizar 90 archivos de documentación de Prisma
+  al repo agrega ruido a cada diff. Son regenerables.
+- **Bug que esto corrigió:** al borrar `.agents/` quedaron 9 symlinks rotos en
+  `.claude/skills/`, que llegaron a commitearse. Se sacaron del índice y se
+  gitignoreó el patrón para que no vuelvan a entrar en el próximo `npm install`.
+- **Si en algún momento se las quiere:** hay que versionar `.agents/skills/`
+  como archivos reales, no los symlinks.
