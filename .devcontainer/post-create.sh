@@ -8,8 +8,12 @@ echo "==> Node $(node -v) / npm $(npm -v)"
 echo "==> Instalando dependencias del proyecto..."
 npm ci --no-audit --no-fund || npm install --no-audit --no-fund
 
+# Claude Code es una comodidad, no un requisito del proyecto. Si el install
+# global falla (permisos sobre el prefix de npm, red), no debe abortar el setup
+# por culpa de `set -e` y dejar el Codespace sin cliente de Prisma.
 echo "==> Instalando Claude Code..."
-npm install -g @anthropic-ai/claude-code --no-audit --no-fund
+npm install -g @anthropic-ai/claude-code --no-audit --no-fund \
+  || echo "    (aviso) no se pudo instalar Claude Code; el resto del setup sigue."
 
 # El cliente de Prisma se genera a src/generated/prisma, que esta gitignoreado.
 # Sin este paso el Codespace arranca sin cliente y cualquier import falla.
