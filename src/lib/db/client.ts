@@ -33,15 +33,43 @@ function createPrismaClient() {
   });
 }
 
-const globalForPrisma = globalThis as unknown as {
-  prisma: ReturnType<typeof createPrismaClient> | undefined;
-};
+type ClientePrisma = ReturnType<typeof createPrismaClient>;
 
-export const prisma = globalForPrisma.prisma ?? createPrismaClient();
+const globalForPrisma = globalThis as unknown as { prisma: ClientePrisma | undefined };
 
-if (process.env.NODE_ENV !== "production") {
-  globalForPrisma.prisma = prisma;
+let instancia: ClientePrisma | undefined;
+
+function obtenerCliente(): ClientePrisma {
+  if (globalForPrisma.prisma) return globalForPrisma.prisma;
+
+  instancia ??= createPrismaClient();
+
+  if (process.env.NODE_ENV !== "production") {
+    globalForPrisma.prisma = instancia;
+  }
+
+  return instancia;
 }
+
+/**
+ * El cliente se instancia en el PRIMER USO, no al importar el modulo.
+ *
+ * Con instanciacion al importar, `next build` fallaba: al recolectar los datos
+ * de las paginas evalua los modulos, y crear el cliente exige DATABASE_URL.
+ * Eso obligaria a tener credenciales de base para poder compilar — algo que un
+ * build no deberia necesitar, y que romperia cualquier CI sin secrets.
+ *
+ * El Proxy mantiene la ergonomia (`prisma.tenant.findFirst()`) difiriendo la
+ * construccion hasta que alguien accede a una propiedad de verdad. Las
+ * funciones se bindean al cliente real para no perder el `this`.
+ */
+export const prisma = new Proxy({} as ClientePrisma, {
+  get(_destino, propiedad) {
+    const cliente = obtenerCliente();
+    const valor = cliente[propiedad as keyof ClientePrisma];
+    return typeof valor === "function" ? valor.bind(cliente) : valor;
+  },
+});
 
 /**
  * ⚠️ ESTE CLIENTE NO FILTRA POR TENANT. Ve la base entera.
