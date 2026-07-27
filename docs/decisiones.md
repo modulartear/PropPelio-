@@ -85,3 +85,31 @@ consecuencias mecánicas de una decisión previa, sin margen real de elección.
   - `docs/setup.md` — cómo levantar el entorno, qué secrets hacen falta, estado del checklist.
   - `docs/decisiones.md` — este archivo.
   - `docs/arquitectura.md` — stack, estructura de carpetas y modelo multi-tenant.
+
+## D-006 — Devcontainer: imagen `typescript-node:1-22-bookworm` + Node 22
+
+- **Fecha:** 2026-07-27
+- **Fase:** 0
+- **Decidió:** Claude (el plan pide "fijar Node version" pero no dice cuál)
+- **Decisión:** Imagen oficial `mcr.microsoft.com/devcontainers/typescript-node:1-22-bookworm`.
+- **Motivo:** Node 22 es LTS activa y es lo que ya corre el entorno donde se
+  hizo el scaffolding, así que dev y CI coinciden. Next 15 pide `>=18.18`, con
+  lo cual 22 está holgado. Se usa la imagen oficial en vez de una base + feature
+  de Node porque trae el toolchain de TypeScript ya armado y buildea más rápido.
+- **Alternativa descartada:** `image: debian` + feature `node:1`. Más lento de
+  construir sin ninguna ventaja acá.
+- **Costo / reversibilidad:** Baja. Cambiar el tag de la imagen y recrear el Codespace.
+
+## D-007 — Setup del Codespace en un script aparte, no inline
+
+- **Fecha:** 2026-07-27
+- **Fase:** 0
+- **Decidió:** Claude
+- **Decisión:** El `postCreateCommand` llama a `.devcontainer/post-create.sh` en
+  vez de encadenar comandos en un string del JSON.
+- **Motivo:** El setup ya tiene varios pasos (dependencias, Claude Code global,
+  mensaje de bienvenida) y va a crecer cuando entre Prisma (`prisma generate`).
+  Un script tiene `set -euo pipefail`, es legible, versionable y se puede correr
+  a mano para depurar. Un string JSON encadenado con `&&` no.
+- **Costo / reversibilidad:** Nula.
+

@@ -15,7 +15,7 @@ no se instala ni se corre nada en una máquina local.**
 | 1 | Repo privado en GitHub | ✅ Hecho (`modulartear/PropPelio-`) | — |
 | 1b | Habilitar Codespaces sobre el repo | ⏳ PENDIENTE | Usuario |
 | 2 | Scaffolding Next.js (TS, App Router, Tailwind, ESLint, `src/`) | ✅ Hecho | Claude |
-| 3 | `devcontainer.json` | ⏳ PENDIENTE | Claude |
+| 3 | `devcontainer.json` | ✅ Escrito — ⚠️ sin verificar en un Codespace real | Claude |
 | 4 | Prettier + ESLint | ⏳ PENDIENTE | Claude |
 | 5 | Proyecto en Supabase + credenciales | ⏳ PENDIENTE | Usuario |
 | 6 | Prisma apuntando a Supabase | ⏳ PENDIENTE | Claude |
@@ -34,12 +34,25 @@ no se instala ni se corre nada en una máquina local.**
 1. Ir a `https://github.com/modulartear/PropPelio-`.
 2. Botón **Code → Codespaces → Create codespace on `<rama>`**.
 3. Esperar a que el contenedor termine de construirse. El `postCreateCommand`
-   del devcontainer instala las dependencias automáticamente — no hace falta
-   correr `npm install` a mano.
+   corre `.devcontainer/post-create.sh`, que instala las dependencias y Claude
+   Code automáticamente — **no hace falta correr `npm install` a mano**.
 4. `npm run dev` → Codespaces expone el puerto 3000 y ofrece abrirlo en el navegador.
 
-> ⏳ El `.devcontainer/devcontainer.json` todavía no está creado (tarea 3).
-> Hasta que lo esté, después de crear el Codespace hay que correr `npm install` manualmente.
+> ⚠️ **Sin verificar todavía.** El devcontainer está escrito, pero ninguna
+> sesión lo construyó aún. La primera vez que abras un Codespace, confirmá que
+> el build termina sin errores y que `npm run dev` levanta sin pasos manuales —
+> ese es el primer punto del criterio de cierre de la Fase 0.
+
+### Qué configura el devcontainer
+
+| Ítem | Valor |
+|---|---|
+| Imagen base | `mcr.microsoft.com/devcontainers/typescript-node:1-22-bookworm` (Node 22) |
+| Features | GitHub CLI |
+| Extensiones VS Code | Claude Code, ESLint, Prettier, Tailwind IntelliSense, Prisma, GitLens |
+| Formateo | `formatOnSave` con Prettier + autofix de ESLint al guardar |
+| Puertos | 3000 (Next.js dev), 5555 (Prisma Studio) |
+| `postCreateCommand` | `.devcontainer/post-create.sh` → `npm ci` + instala Claude Code global |
 
 ### Opción B — Claude Code on the web
 
@@ -53,7 +66,7 @@ prueba de que el Codespace levante bien. Esa verificación se hace en Codespaces
 
 | Herramienta | Versión | Nota |
 |---|---|---|
-| Node.js | 22.x | Fijada por el devcontainer (tarea 3) |
+| Node.js | 22.x | Fijada por el devcontainer (imagen `typescript-node:1-22-bookworm`) |
 | npm | 10.x | Gestor de paquetes del proyecto |
 
 ---
