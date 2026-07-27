@@ -20,10 +20,26 @@ no se instala ni se corre nada en una máquina local.**
 | 5   | Proyecto en Supabase + credenciales                            | ✅ Proyecto creado en `sa-east-1`                | Usuario |
 | 6   | Prisma apuntando a Supabase                                    | ✅ Hecho — conexión verificada con Prisma Studio | Claude  |
 | 7   | `@supabase/supabase-js` (Auth + Storage)                       | ✅ Hecho                                         | Claude  |
-| 8   | Env vars como Codespaces secrets + Vercel                      | ✅ Codespaces cargado — ⏳ falta Vercel          | Ambos   |
+| 8   | Env vars como Codespaces secrets + Vercel                      | ✅ Codespaces — ⏳ falta cargarlas en Vercel     | Ambos   |
 | 9   | Repo conectado a Vercel + deploy "hello world"                 | ✅ Hecho — `prop-pelio.vercel.app`               | Usuario |
-| 10  | Dominio raíz + wildcard `*.dominio.com` en Vercel              | ⏳ PENDIENTE                                     | Usuario |
-| 11  | Documentación en `/docs`                                       | 🔄 En curso (este archivo)                       | Claude  |
+| 10  | Dominio raíz + wildcard `*.dominio.com` en Vercel              | ⏸️ POSTERGADO — ver D-018                        | Usuario |
+| 11  | Documentación en `/docs`                                       | ✅ Hecha                                         | Claude  |
+
+### Criterio de cierre de la Fase 0
+
+| Criterio (texto del plan)                                                  | Estado                           |
+| -------------------------------------------------------------------------- | -------------------------------- |
+| El Codespace levanta el proyecto sin pasos manuales adicionales            | ✅ Verificado                    |
+| `npx prisma studio` dentro del Codespace conecta a la DB de Supabase       | ✅ Verificado                    |
+| El dashboard de Supabase Auth y Storage responden desde el proyecto        | ✅ Credenciales validadas        |
+| Cada push a una rama genera un preview deployment en Vercel con URL propia | ✅ Verificado (commit `d61d046`) |
+
+### Lo que queda abierto al cerrar la fase
+
+1. **Variables de entorno en Vercel.** Cargadas en Codespaces, todavía no en
+   Vercel. El "hello world" no las necesita, pero **el primer código de la Fase 1
+   que importe `src/lib/env.ts` va a romper el build** hasta que estén.
+2. **Dominio raíz + wildcard.** Postergado, ver D-018.
 
 ---
 

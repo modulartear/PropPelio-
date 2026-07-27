@@ -293,3 +293,29 @@ consecuencias mecánicas de una decisión previa, sin margen real de elección.
 - **Lección general:** conectar Vercel a un repo **antes** de que tenga código
   hace que la autodetección se fije mal. Si se vuelve a hacer, conviene
   importar el repo recién cuando la rama de producción ya tenga el proyecto.
+
+## D-018 — El dominio propio se posterga; la Fase 0 cierra sin ese punto
+
+- **Fecha:** 2026-07-27
+- **Fase:** 0
+- **Decidió:** Usuario (consultado)
+- **Contexto:** La tarea 10 del plan pide configurar el dominio raíz y el
+  wildcard `*.dominio.com` en Vercel. Al cerrar la fase todavía no hay dominio
+  comprado.
+- **Decisión:** Cerrar la Fase 0 con ese punto explícitamente pendiente, en vez
+  de frenar el proyecto.
+- **Por qué no bloquea:** la Fase 1 (resolución de tenant por subdominio) no
+  necesita un dominio real. Su propio criterio de cierre está escrito contra
+  `tenant-a.localhost:3000` / `tenant-b.localhost:3000`, y el middleware lee el
+  header `Host` sin importar de qué dominio venga. Mientras tanto se trabaja
+  sobre la URL de Vercel.
+- **Cuándo retomarlo:** al comprar el dominio, o a más tardar en la **Fase 6**
+  (dominios personalizados), que es donde se integra la API de dominios de
+  Vercel y el wildcard pasa a ser imprescindible.
+- **Qué habrá que hacer entonces:**
+  1. Agregar el dominio raíz en Vercel → Project → Settings → Domains.
+  2. Agregar `*.dominio.com` como wildcard (Vercel pide verificación por DNS
+     con un registro `TXT`).
+  3. En el registrador: `A` / `CNAME` del raíz apuntando a Vercel, y un `CNAME`
+     `*` para el wildcard.
+  4. El SSL del wildcard lo provisiona Vercel automáticamente tras verificar.
