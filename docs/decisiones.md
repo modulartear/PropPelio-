@@ -400,3 +400,84 @@ consecuencias mecánicas de una decisión previa, sin margen real de elección.
 - **Costo / reversibilidad:** Baja. Es una devDependency, no entra al bundle.
 - **Nota:** los **tests** no usan `tsx` — corren con el runner nativo de Node,
   sin dependencias, porque no importan el cliente generado.
+
+## D-025 — RLS efectiva también sobre Prisma, con rol dedicado
+
+- **Fecha:** 2026-07-27
+- **Fase:** 2
+- **Decidió:** Usuario (consultado — opción A de tres)
+- **Contexto:** El plan pide RLS como _"capa de seguridad adicional a los
+  filtros de Prisma"_. Al implementarlo aparecieron dos obstáculos que el plan
+  no anticipa:
+  1. **El rol `postgres` de Supabase es dueño de las tablas y ignora sus
+     propias políticas**, incluso con `FORCE ROW LEVEL SECURITY`. Escritas de
+     la forma habitual, las políticas no habrían protegido **ni un solo query
+     de Prisma** — el camino por donde pasa el 100% de los datos del panel.
+  2. **Resolver el host y resolver al usuario ocurren antes de que exista
+     contexto de tenant.** Con RLS forzado sobre esas tablas, nada podría
+     loguearse.
+- **Decisión:** rol de Postgres `app_user`, sin `BYPASSRLS` y sin ser dueño de
+  nada, más **dos connection strings**:
+
+  | Variable             | Rol        | RLS        | Uso                                                      |
+  | -------------------- | ---------- | ---------- | -------------------------------------------------------- |
+  | `DATABASE_URL`       | `app_user` | **aplica** | `forTenant()` — todos los datos de negocio               |
+  | `DATABASE_ADMIN_URL` | `postgres` | bypasea    | Sólo resolver host, resolver usuario y alta self-service |
+
+  El uso del segundo está confinado a `src/lib/db/tenants.ts` y `users.ts`, que
+  ya eran los únicos archivos con acceso sin filtro.
+
+- **Cómo se transmite el tenant:** `set_config('app.tenant_id', <id>, true)` al
+  abrir cada transacción. El `true` la hace **local a la transacción**, y eso es
+  lo esencial con el transaction pooler: sin él, la conexión vuelve al pool con
+  el tenant del request anterior pegado, y el siguiente request que la tome ve
+  datos ajenos. Sería exactamente el bug que todo esto busca evitar.
+- **Costo asumido:** cada operación de Prisma pasa a ser una transacción con una
+  sentencia extra. Es un round-trip más por query. Se aceptó a cambio de que la
+  segunda capa cubra el camino principal de datos y no sólo Auth y Storage.
+- **`tenants` recibe trato distinto:** `SELECT` libre (resolver un host es la
+  operación que _establece_ el tenant; si estuviera restringida ningún request
+  podría arrancar), `UPDATE` sólo sobre el propio, y sin política de `INSERT`
+  ni `DELETE` para `app_user` — sin política, la operación se rechaza.
+- **Contraseña del rol:** la migración crea `app_user` **sin contraseña**, a
+  propósito. Una contraseña en un archivo versionado es una contraseña
+  filtrada. Se asigna a mano una vez desde el SQL Editor de Supabase.
+- **Deuda que esto genera:** cada tabla nueva con `tenantId` necesita su propia
+  política. Los `GRANT` se heredan por `ALTER DEFAULT PRIVILEGES`, las
+  políticas **no**. Una tabla con RLS habilitado y sin políticas rechaza todo;
+  una tabla sin RLS habilitado queda completamente abierta. Queda como
+  recordatorio al final de la migración y como ítem para la auditoría de la
+  Fase 8.
+
+## D-026 — `@supabase/ssr` y sesión en cookies
+
+- **Fecha:** 2026-07-27
+- **Fase:** 2
+- **Decidió:** Claude (previsto en D-015)
+- **Decisión:** `@supabase/ssr` para las sesiones, con tres clientes:
+  `browser.ts`, `server.ts` (sesión del usuario) y `admin.ts` (secret key).
+- **Motivo:** guarda la sesión en **cookies** en vez de localStorage, que es lo
+  único que permite que el servidor la vea. Con localStorage, un Server
+  Component no puede saber quién está logueado.
+- **Detalle de seguridad:** el cliente de servidor usa `getUser()` y **no**
+  `getSession()`. Los datos de `getSession()` salen de la cookie y podrían estar
+  manipulados; `getUser()` los valida contra el servidor de Supabase.
+- **Detalle del middleware:** la respuesta se arma **antes** de refrescar la
+  sesión, porque el refresco escribe las cookies renovadas sobre ella. Crear
+  otra después las perdería, y el síntoma sería un usuario que se desloguea de
+  a ratos sin patrón aparente.
+
+## D-027 — Los guards responden 404, nunca 403
+
+- **Fecha:** 2026-07-27
+- **Fase:** 2
+- **Decidió:** Claude
+- **Decisión:** `requireTenantUser()`, `requireSuperAdmin()` y
+  `requireTenantAdmin()` responden **404** ante permisos insuficientes.
+- **Motivo:** un 403 confirma que el recurso existe. Para quien no es
+  super-admin, el panel central directamente no existe; para quien no pertenece
+  a un tenant, ese tenant no existe.
+- **Decisión relacionada:** el `SUPER_ADMIN` **no** entra al panel de un tenant.
+  Si más adelante hace falta "entrar como" un cliente para dar soporte, tiene
+  que ser un flujo explícito y auditable, no un permiso implícito que nadie
+  recuerda que existe.

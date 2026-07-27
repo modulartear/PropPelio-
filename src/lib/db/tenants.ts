@@ -1,6 +1,6 @@
 import "server-only";
 
-import { prisma } from "@/lib/db/client";
+import { prismaAdmin } from "@/lib/db/client";
 
 /**
  * Acceso a la tabla `tenants`.
@@ -34,7 +34,7 @@ export async function buscarTenantActivo(
   por: CampoDeHost,
   valor: string,
 ): Promise<TenantContext | null> {
-  return prisma.tenant.findFirst({
+  return prismaAdmin.tenant.findFirst({
     where: {
       [por]: valor,
       status: "ACTIVE",

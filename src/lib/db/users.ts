@@ -1,6 +1,6 @@
 import "server-only";
 
-import { prisma } from "@/lib/db/client";
+import { prismaAdmin } from "@/lib/db/client";
 
 /**
  * Acceso a la tabla `users` que NO puede estar scopeado a un tenant.
@@ -31,7 +31,7 @@ export type UsuarioActual = {
  * es lo correcto.
  */
 export async function buscarUsuarioPorAuthId(authUserId: string): Promise<UsuarioActual | null> {
-  return prisma.user.findUnique({
+  return prismaAdmin.user.findUnique({
     where: { authUserId },
     select: { id: true, email: true, name: true, role: true, tenantId: true },
   });
@@ -39,7 +39,7 @@ export async function buscarUsuarioPorAuthId(authUserId: string): Promise<Usuari
 
 /** ¿Ese subdominio esta libre? Se consulta desde el registro self-service. */
 export async function subdominioDisponible(subdomain: string): Promise<boolean> {
-  const existente = await prisma.tenant.findUnique({
+  const existente = await prismaAdmin.tenant.findUnique({
     where: { subdomain },
     select: { id: true },
   });
@@ -61,7 +61,7 @@ export async function crearTenantConAdmin(datos: {
   email: string;
   nombreUsuario: string | null;
 }) {
-  return prisma.$transaction(async (tx) => {
+  return prismaAdmin.$transaction(async (tx) => {
     const tenant = await tx.tenant.create({
       data: { name: datos.nombreTenant, subdomain: datos.subdomain },
       select: { id: true, name: true, subdomain: true },

@@ -30,8 +30,19 @@ function required(name: string, value: string | undefined): string {
  */
 export function serverEnv() {
   return {
-    /** Transaction pooler de Supabase (6543). Runtime de la app. */
+    /**
+     * Transaction pooler de Supabase (6543), con el rol `app_user`.
+     * SUJETO A RLS: no ve nada sin un tenant seteado en la transaccion.
+     */
     DATABASE_URL: required("DATABASE_URL", process.env.DATABASE_URL),
+    /**
+     * Igual pero con el rol `postgres`, que BYPASEA RLS.
+     *
+     * Solo para las operaciones que ocurren ANTES de que exista un tenant:
+     * resolver el host, resolver al usuario autenticado, y el alta
+     * self-service. Su uso esta confinado a src/lib/db/tenants.ts y users.ts.
+     */
+    DATABASE_ADMIN_URL: required("DATABASE_ADMIN_URL", process.env.DATABASE_ADMIN_URL),
     /** Session pooler de Supabase (5432). Solo migraciones y CLI de Prisma. */
     DIRECT_URL: required("DIRECT_URL", process.env.DIRECT_URL),
     /** Bypasea RLS por completo. Jamas exponer al cliente. */
