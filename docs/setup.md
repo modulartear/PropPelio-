@@ -211,18 +211,31 @@ Modelo previsto una vez conectado:
 
 ## 7. Problemas conocidos
 
-### La app de GitHub no tiene permiso de escritura sobre el repo
+### ✅ RESUELTO — `git push` devolvía 403 aunque la lectura funcionaba
 
-**Síntoma:** `git push` devuelve `403 Forbidden` en `git-receive-pack`, y la API
-de GitHub devuelve `403 Resource not accessible by integration`. La lectura
-funciona bien.
+**Síntoma:** `git push` devolvía `403 Forbidden` en `git-receive-pack`, y la API
+de GitHub `403 Resource not accessible by integration`. Clonar y hacer fetch
+funcionaban perfecto, lo cual despistaba.
 
-**Causa:** la instalación de la GitHub App tiene el permiso **Contents** en
-read-only sobre `modulartear/PropPelio-`.
+**Causa real:** la GitHub App de Claude estaba **autorizada** pero no
+**instalada**. Son dos cosas distintas y hacen falta las dos:
 
-**Solución:** GitHub → Settings → Applications → Installed GitHub Apps →
-**Claude** → Configure → verificar que `PropPelio-` esté en _Repository access_
-y que **Contents** esté en **Read and write**.
+| Solapa en GitHub Settings → Applications | Qué otorga                            |
+| ---------------------------------------- | ------------------------------------- |
+| **Authorized GitHub Apps**               | Identidad — que la app sepa quién sos |
+| **Installed GitHub Apps**                | Permisos reales sobre los repos       |
+
+La app figuraba en _Authorized_ con la leyenda "Never used", y no aparecía en
+_Installed_. La lectura funcionaba por otro motivo: **el repo era público**, y
+un repo público se clona sin ningún permiso. Escribir era lo único que
+necesitaba la instalación.
+
+**Solución:** instalar la app desde https://github.com/apps/claude sobre la
+cuenta, seleccionando el repositorio.
+
+> ⚠️ **Orden importante:** instalar la app **antes** de pasar el repo a privado.
+> Al revés se pierde también el acceso de lectura, que hasta ese momento venía
+> de que el repo fuera público.
 
 ---
 
@@ -233,3 +246,4 @@ y que **Contents** esté en **Read and write**.
 | 2026-07-27 | Creación del documento. Refleja el estado tras el scaffolding de Next.js.                                   |
 | 2026-07-27 | Devcontainer, sección de estilo de código (Prettier + ESLint), pasos de Vercel y problemas conocidos.       |
 | 2026-07-27 | Contrato de las 5 variables de entorno, cómo cargarlas en Codespaces y Vercel, y comandos de base de datos. |
+| 2026-07-27 | Resuelto el 403 de `git push`: la GitHub App estaba autorizada pero no instalada.                           |
