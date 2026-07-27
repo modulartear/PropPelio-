@@ -197,8 +197,14 @@ El repo está conectado a Vercel. **Producción: https://prop-pelio.vercel.app**
 
 ### Cómo quedó configurado
 
-Vercel autodetecta Next.js y npm; no se cambió build command, output directory
-ni install command. El pipeline es:
+El framework se declara en **`vercel.json`** (`"framework": "nextjs"`), no en el
+dashboard. Ver D-017: el repo se importó a Vercel cuando `main` todavía era sólo
+un README, así que la autodetección lo configuró como sitio estático y el primer
+push con código real falló con `No Output Directory named "public" found`.
+Tenerlo en `vercel.json` hace que la config viaje con el código y no dependa de
+un setting invisible desde el repo.
+
+El pipeline es:
 
 ```
 npm install  →  postinstall: prisma generate  →  next build

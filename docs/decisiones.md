@@ -268,3 +268,28 @@ consecuencias mecánicas de una decisión previa, sin margen real de elección.
   gitignoreó el patrón para que no vuelvan a entrar en el próximo `npm install`.
 - **Si en algún momento se las quiere:** hay que versionar `.agents/skills/`
   como archivos reales, no los symlinks.
+
+## D-017 — El framework de Vercel se declara en `vercel.json`, no en el dashboard
+
+- **Fecha:** 2026-07-27
+- **Fase:** 0
+- **Decidió:** Claude
+- **Contexto:** El primer deploy de producción salió "verde" pero no estaba
+  sirviendo la app: el repo se importó a Vercel cuando `main` tenía **sólo un
+  `README.md`**, sin `package.json`. Vercel autodetecta el framework en el
+  momento del import, no vio un proyecto de Next.js, y configuró el preset como
+  **Other** — que sirve archivos estáticos desde `public/`.
+- **Síntoma:** el primer push con código real falló con
+  `No Output Directory named "public" found after the Build completed`. La
+  carpeta `public/` quedó vacía al borrar los SVG del template de
+  `create-next-app`, y git no versiona directorios vacíos.
+- **Decisión:** declarar `"framework": "nextjs"` en un `vercel.json`
+  versionado, en vez de corregir el preset a mano en el dashboard.
+- **Motivo:** un setting del dashboard es invisible desde el repo, no queda en
+  la historia de git y se pierde si el proyecto se recrea. `vercel.json` tiene
+  precedencia sobre la configuración del dashboard, viaja con el código y
+  documenta la intención. Un clone nuevo importado a otra cuenta de Vercel
+  buildea bien sin que nadie tenga que acordarse de tocar nada.
+- **Lección general:** conectar Vercel a un repo **antes** de que tenga código
+  hace que la autodetección se fije mal. Si se vuelve a hacer, conviene
+  importar el repo recién cuando la rama de producción ya tenga el proyecto.
