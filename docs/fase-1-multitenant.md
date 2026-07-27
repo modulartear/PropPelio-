@@ -2,8 +2,9 @@
 
 Cómo funciona la resolución de tenant y cómo verificarla.
 
-> Estado: código completo. **Falta aplicar la migración y correr el seed** — ver
-> §4. Eso requiere el Codespace con los secrets cargados.
+> ✅ **Fase cerrada.** Migración aplicada, seed corrido y los dos criterios de
+> cierre verificados en el Codespace contra la base real de Supabase. El
+> resultado de esa verificación está en §5.
 
 ---
 
@@ -183,6 +184,29 @@ done
 curl -s -H "Host: propiedadesdelsur.test" http://127.0.0.1:3000/ | grep -o "Bienvenido a [^<]*"
 ```
 
+#### Resultado obtenido (2026-07-27, Codespace contra Supabase)
+
+```
+localhost:3000                 200   ← marketing
+tenant-a.localhost:3000        200   ← Inmobiliaria López
+tenant-b.localhost:3000        200   ← Propiedades del Sur
+tenant-c.localhost:3000        404   ← suspendido
+noexiste.localhost:3000        404
+api.localhost:3000             404   ← reservado
+```
+
+Contenido efectivamente distinto entre tenants, con `tenantId` propio cada uno:
+
+|                | tenant-a           | tenant-b                 |
+| -------------- | ------------------ | ------------------------ |
+| Nombre         | Inmobiliaria López | Propiedades del Sur      |
+| Tenant ID      | `cms3nxd0l0000…`   | `cms3nxdt50004…`         |
+| Dominio propio | —                  | `propiedadesdelsur.test` |
+
+> Si extraés el nombre con `grep`, acotá el patrón al `<h1>`. Un
+> `grep -o "Bienvenido a [^<]*"` matchea también el payload RSC que Next embebe
+> en un `<script>`, y la salida se vuelve ilegible aunque los datos estén bien.
+
 ### "Intentar acceder a datos de otro tenant devuelve 404/403, no error de servidor"
 
 Se puede probar pidiendo a mano la ruta interna que normalmente escribe el
@@ -198,6 +222,9 @@ curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:3000/tenants/id/algo
 
 El segundo es el importante: el segmento `por` viene de la URL, y se valida
 contra los dos valores permitidos antes de usarlo como nombre de campo.
+
+**Resultado obtenido:** ambos devuelven `404`. Ninguno `500` — pedir un tenant
+que no existe es una URL equivocada, no un error del servidor.
 
 ---
 

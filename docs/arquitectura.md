@@ -20,7 +20,7 @@ landing pública personalizable por cliente con un builder visual tipo Elementor
 | Estilos       | Tailwind CSS v4              | ✅ Instalado                            |
 | Componentes   | shadcn/ui                    | ❌ No instalado (no es tarea de Fase 0) |
 | Base de datos | Postgres (Supabase)          | ✅ Conectado y verificado (sa-east-1)   |
-| ORM           | Prisma 7.9.0                 | ✅ Con modelos multi-tenant             |
+| ORM           | Prisma 7.9.0                 | ✅ Migración aplicada a Supabase        |
 | Auth          | Supabase Auth                | ⏳ Cliente listo, sin usar (Fase 2)     |
 | Storage       | Supabase Storage             | ⏳ Cliente listo, sin usar (Fase 3)     |
 | Hosting / CI  | Vercel                       | ✅ Conectado y deployando               |
