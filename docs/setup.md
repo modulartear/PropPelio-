@@ -287,6 +287,29 @@ vuelve a marcar `1`, que es lo correcto.
 inyectan como variables de entorno al arrancar el contenedor; uno ya abierto
 sigue con los valores viejos.
 
+### "Invalid Server Actions request" en Codespaces
+
+**Síntoma:** cualquier formulario que use una Server Action (login, registro)
+falla con `Invalid Server Actions request`.
+
+**Causa:** Next protege las Server Actions contra CSRF comparando el header
+`Origin` con el `Host`. El proxy de reenvío de puertos de Codespaces le entrega
+a Next `Host: localhost:3000`, mientras el navegador manda
+`Origin: https://<algo>-3000.app.github.dev`. No coinciden, y Next rechaza.
+
+Es la misma causa raíz que la limitación de los subdominios: **el proxy de
+Codespaces reescribe el Host**.
+
+**Solución:** ya está en el repo. `next.config.ts` agrega el host de Codespaces
+a `serverActions.allowedOrigins`, armándolo desde las variables `CODESPACE_NAME`
+y `GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN` que la plataforma expone.
+
+Sólo se aplica en desarrollo: en producción el `Host` y el `Origin` coinciden,
+así que agregar orígenes ahí sería ampliar la superficie de CSRF sin motivo.
+
+> Si aparece de nuevo, reiniciá `npm run dev`: `next.config.ts` se lee al
+> arrancar, no en caliente.
+
 ### Un Codespace nuevo puede arrancar con el repo desactualizado
 
 **Síntoma:** creás un Codespace, y el explorador muestra sólo `README.md` con
