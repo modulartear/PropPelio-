@@ -160,3 +160,92 @@ consecuencias mecánicas de una decisión previa, sin margen real de elección.
   **contrato** de variables (nombres y descripción), nunca valores.
 - **Motivo:** Sin el `.env.example` versionado, el contrato de variables no
   queda en ningún lado y hay que reconstruirlo leyendo el código.
+
+## D-011 — Región de Supabase: `sa-east-1` (São Paulo)
+
+- **Fecha:** 2026-07-27
+- **Fase:** 0
+- **Decidió:** Usuario
+- **Contexto:** El proyecto se creó primero en `us-east-1` y se recreó en
+  `sa-east-1` mientras la base todavía estaba vacía.
+- **Motivo:** ~90ms menos de latencia por query desde Argentina. El panel del
+  tenant hace varias queries por request, así que la diferencia se acumula.
+- **Costo / reversibilidad:** Alta a partir de ahora. Supabase no permite
+  cambiar la región de un proyecto: hay que crear otro y migrar los datos. Se
+  hizo en la única ventana en que era gratis (base vacía).
+- **Efecto lateral:** cambió el project ref. No está hardcodeado en ningún lado
+  del repo — vive sólo dentro de los valores de las env vars.
+
+## D-012 — Prisma 7.9.0 y sus consecuencias
+
+- **Fecha:** 2026-07-27
+- **Fase:** 0
+- **Decidió:** Usuario (consultado)
+- **Decisión:** Prisma 7.9.0, no la rama 6.x.
+- **Motivo:** Arrancando de cero no se paga costo de migración, y el modelo de
+  driver adapters encaja mejor con el pooler de Supabase. No aplica acá el
+  criterio conservador de D-001: Prisma no arrastra el ecosistema de terceros
+  que sí tenía Next.
+- **Tres consecuencias mecánicas de esta elección** (no fueron decisiones
+  aparte, son requisitos de v7):
+  1. **`@prisma/adapter-pg` es obligatorio.** Prisma 7 eliminó la opción
+     `datasourceUrl`: sin un driver adapter el cliente no se puede instanciar.
+  2. **El generador es `prisma-client`, no `prisma-client-js`**, y exige
+     `output` explícito. Se genera a `src/generated/prisma`, que está
+     gitignoreado. De ahí el `postinstall: prisma generate` — sin él, un clone
+     limpio o un build de Vercel no tienen cliente.
+  3. **`directUrl` ya no existe en el schema.** La URL de migraciones se define
+     en `prisma.config.ts`. Ver `docs/arquitectura.md` §1b.
+- **Costo / reversibilidad:** Media. Bajar a 6.x implicaría rehacer la config,
+  el generador y el cliente.
+
+## D-013 — API keys: publishable / secret (no anon / service_role)
+
+- **Fecha:** 2026-07-27
+- **Fase:** 0
+- **Decidió:** Usuario (consultado)
+- **Contexto:** El dashboard ofrece los dos pares.
+- **Decisión:** Usar las nuevas: `sb_publishable_...` y `sb_secret_...`.
+- **Motivo:** Las JWT legacy (`anon` / `service_role`) están anunciadas como
+  deprecadas; arrancar acá evita una migración a mitad de proyecto. Además las
+  nuevas se rotan y revocan individualmente.
+- **Costo asumido:** casi toda la documentación y las respuestas que se
+  encuentran googleando usan los nombres viejos. Al leer un tutorial, `anon`
+  se lee como _publishable_ y `service_role` como _secret_.
+- **Variables resultantes:** `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` y
+  `SUPABASE_SECRET_KEY`.
+- **Costo / reversibilidad:** Baja. Es renombrar dos variables.
+
+## D-014 — Toda variable de entorno se lee desde `src/lib/env.ts`
+
+- **Fecha:** 2026-07-27
+- **Fase:** 0
+- **Decidió:** Claude
+- **Decisión:** Ningún módulo lee `process.env` directo. Todo pasa por
+  `serverEnv()` o `publicEnv()`, que tiran un error nombrando la variable que
+  falta.
+- **Motivo:** Sin esto, una variable faltante aparece como `undefined` en medio
+  de un query y el error que se ve no tiene relación con la causa. Además
+  concentra en un archivo la separación entre lo que puede llegar al browser y
+  lo que no.
+- **Por qué son funciones y no objetos de módulo:** un objeto se evalúa al
+  importar, así que importar cualquier cosa del archivo obligaría a tener
+  definidas _todas_ las variables. `src/lib/db.ts` sólo necesita las de
+  servidor y rompía sin razón por falta de una `NEXT_PUBLIC_`. Verificado con
+  una prueba.
+- **Nota:** `process.env.NEXT_PUBLIC_*` está escrito literal a propósito — Next
+  lo sustituye por texto en build time y no funciona con indexado dinámico.
+
+## D-015 — `@supabase/ssr` NO se instala en Fase 0
+
+- **Fecha:** 2026-07-27
+- **Fase:** 0
+- **Decidió:** Claude
+- **Contexto:** Para sesiones de Supabase Auth persistidas en cookies entre
+  Server Components, middleware y browser, el paquete correcto es
+  `@supabase/ssr`, no `@supabase/supabase-js` solo.
+- **Decisión:** En Fase 0 se instala únicamente `@supabase/supabase-js`, que es
+  lo que pide el plan. `@supabase/ssr` entra en la **Fase 2** (autenticación),
+  que es donde aparece ese requerimiento.
+- **Motivo:** No adelantar trabajo de fases posteriores. Instalarlo ahora
+  significaría dejar clientes de sesión sin usar y sin poder probar.

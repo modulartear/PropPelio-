@@ -1,0 +1,23 @@
+// Schema de Prisma — PropPelio
+//
+// Fase 0: todavia NO hay modelos de negocio. Este archivo solo deja configurada
+// la conexion a Postgres (Supabase). Los modelos Tenant / User / TenantModule
+// entran en la Fase 1.
+//
+// Las URLs de conexion NO se declaran aca. En Prisma 7 viven en dos lugares
+// distintos a proposito, porque Supabase expone dos poolers con roles distintos:
+//
+//   - Migraciones y CLI -> prisma.config.ts -> DIRECT_URL  (session pooler, 5432)
+//   - Runtime de la app -> src/lib/db.ts    -> DATABASE_URL (transaction pooler, 6543)
+//
+// Ver docs/arquitectura.md, seccion "Conexion a Postgres".
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+  runtime  = "nodejs"
+}
+
+datasource db {
+  provider = "postgresql"
+}

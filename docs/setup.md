@@ -17,10 +17,10 @@ no se instala ni se corre nada en una máquina local.**
 | 2   | Scaffolding Next.js (TS, App Router, Tailwind, ESLint, `src/`) | ✅ Hecho                                           | Claude  |
 | 3   | `devcontainer.json`                                            | ✅ Escrito — ⚠️ sin verificar en un Codespace real | Claude  |
 | 4   | Prettier + ESLint                                              | ✅ Hecho                                           | Claude  |
-| 5   | Proyecto en Supabase + credenciales                            | ⏳ PENDIENTE                                       | Usuario |
-| 6   | Prisma apuntando a Supabase                                    | ⏳ PENDIENTE                                       | Claude  |
-| 7   | `@supabase/supabase-js` (Auth + Storage)                       | ⏳ PENDIENTE                                       | Claude  |
-| 8   | Env vars como Codespaces secrets + Vercel                      | ⏳ PENDIENTE                                       | Ambos   |
+| 5   | Proyecto en Supabase + credenciales                            | ✅ Proyecto creado en `sa-east-1`                  | Usuario |
+| 6   | Prisma apuntando a Supabase                                    | ✅ Hecho — ⚠️ sin conectar a la DB real            | Claude  |
+| 7   | `@supabase/supabase-js` (Auth + Storage)                       | ✅ Hecho                                           | Claude  |
+| 8   | Env vars como Codespaces secrets + Vercel                      | ✅ Contrato definido — ⏳ falta cargarlas          | Ambos   |
 | 9   | Repo conectado a Vercel + deploy "hello world"                 | ⏳ PENDIENTE                                       | Usuario |
 | 10  | Dominio raíz + wildcard `*.dominio.com` en Vercel              | ⏳ PENDIENTE                                       | Usuario |
 | 11  | Documentación en `/docs`                                       | 🔄 En curso (este archivo)                         | Claude  |
@@ -45,14 +45,14 @@ no se instala ni se corre nada en una máquina local.**
 
 ### Qué configura el devcontainer
 
-| Ítem                | Valor                                                                     |
-| ------------------- | ------------------------------------------------------------------------- |
-| Imagen base         | `mcr.microsoft.com/devcontainers/typescript-node:1-22-bookworm` (Node 22) |
-| Features            | GitHub CLI                                                                |
-| Extensiones VS Code | Claude Code, ESLint, Prettier, Tailwind IntelliSense, Prisma, GitLens     |
-| Formateo            | `formatOnSave` con Prettier + autofix de ESLint al guardar                |
-| Puertos             | 3000 (Next.js dev), 5555 (Prisma Studio)                                  |
-| `postCreateCommand` | `.devcontainer/post-create.sh` → `npm ci` + instala Claude Code global    |
+| Ítem                | Valor                                                                       |
+| ------------------- | --------------------------------------------------------------------------- |
+| Imagen base         | `mcr.microsoft.com/devcontainers/typescript-node:1-22-bookworm` (Node 22)   |
+| Features            | GitHub CLI                                                                  |
+| Extensiones VS Code | Claude Code, ESLint, Prettier, Tailwind IntelliSense, Prisma, GitLens       |
+| Formateo            | `formatOnSave` con Prettier + autofix de ESLint al guardar                  |
+| Puertos             | 3000 (Next.js dev), 5555 (Prisma Studio)                                    |
+| `postCreateCommand` | `.devcontainer/post-create.sh` → `npm ci` + Claude Code + `prisma generate` |
 
 ### Opción B — Claude Code on the web
 
@@ -84,6 +84,10 @@ npm run lint:fix      # ESLint con autofix
 npm run format        # Prettier: reescribe los archivos
 npm run format:check  # Prettier: sólo verifica, no escribe
 npm run typecheck     # tsc --noEmit
+
+npm run db:generate   # regenera el cliente de Prisma (corre solo en postinstall)
+npm run db:migrate    # prisma migrate dev — necesita DIRECT_URL
+npm run db:studio     # Prisma Studio (puerto 5555) — necesita DIRECT_URL
 ```
 
 ---
@@ -127,17 +131,60 @@ D-009. El `formatOnSave` del devcontainer cubre el caso habitual.
 
 ## 5. Variables de entorno / secrets
 
-> ⏳ PENDIENTE (tarea 8). Todavía no hay ninguna variable definida porque el
-> proyecto de Supabase no está creado (tarea 5).
+**Regla del proyecto: no hay archivos `.env` en disco.** El contrato de
+variables está versionado en [`.env.example`](../.env.example) — nombres y
+procedencia, nunca valores. Los valores viven en:
 
-**Regla del proyecto: no se commitea ningún `.env` con valores reales, y no se
-usa `.env.local` en disco.** Los valores viven en:
+- **GitHub → Settings → Secrets and variables → Codespaces** (desarrollo).
+- **Vercel → Project → Settings → Environment Variables** (preview y producción).
 
-- **GitHub → Settings → Secrets and variables → Codespaces** (para desarrollo).
-- **Vercel → Project → Settings → Environment Variables** (para preview y producción).
+### Las 5 variables
 
-El contrato de variables se documentará acá y en `.env.example` cuando se
-ejecute la tarea 8.
+| Variable                               | De dónde sale                                   | Secreta |
+| -------------------------------------- | ----------------------------------------------- | ------- |
+| `DATABASE_URL`                         | Supabase → Connect → ORM → Prisma (puerto 6543) | Sí      |
+| `DIRECT_URL`                           | Supabase → Connect → ORM → Prisma (puerto 5432) | Sí      |
+| `NEXT_PUBLIC_SUPABASE_URL`             | Supabase → Settings → API Keys                  | No      |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Supabase → Settings → API Keys                  | No      |
+| `SUPABASE_SECRET_KEY`                  | Supabase → Settings → API Keys                  | **Sí**  |
+
+Por qué son dos URLs de base distintas: ver `docs/arquitectura.md` §1b.
+
+> ⚠️ `SUPABASE_SECRET_KEY` **bypasea todas las políticas de RLS**. Nunca
+> prefijarla con `NEXT_PUBLIC_`, nunca usarla para servir el request de un
+> tenant.
+
+### Cargarlas en Codespaces
+
+1. GitHub → tu perfil → **Settings** → **Secrets and variables** → **Codespaces**.
+2. **New secret** por cada una de las 5.
+3. En _Repository access_ de cada secret, seleccionar **`PropPelio-`**. Sin esto
+   el secret existe pero no llega al Codespace.
+4. Si ya tenías un Codespace abierto, hay que reiniciarlo para que las tome.
+
+### Cargarlas en Vercel
+
+Project → **Settings** → **Environment Variables**. Marcar los tres entornos
+(Production, Preview, Development) salvo que quieras una base distinta por
+entorno — hoy es la misma para los tres.
+
+> El deploy inicial "hello world" **no necesita ninguna variable**: la página no
+> importa `src/lib/env.ts`. Se pueden cargar después, antes de la Fase 1.
+
+### Cómo se leen desde el código
+
+Ningún módulo lee `process.env` directo. Todo pasa por
+[`src/lib/env.ts`](../src/lib/env.ts):
+
+```ts
+import { serverEnv, publicEnv } from "@/lib/env";
+
+const { DATABASE_URL } = serverEnv(); // sólo servidor
+const { SUPABASE_URL } = publicEnv(); // puede ir al browser
+```
+
+Si falta una variable, tira un error que la nombra, al arrancar — en vez de
+aparecer como `undefined` en medio de un query. Ver D-014.
 
 ---
 
@@ -181,7 +228,8 @@ y que **Contents** esté en **Read and write**.
 
 ## 8. Historial de cambios de este documento
 
-| Fecha      | Cambio                                                                                                |
-| ---------- | ----------------------------------------------------------------------------------------------------- |
-| 2026-07-27 | Creación del documento. Refleja el estado tras el scaffolding de Next.js.                             |
-| 2026-07-27 | Devcontainer, sección de estilo de código (Prettier + ESLint), pasos de Vercel y problemas conocidos. |
+| Fecha      | Cambio                                                                                                      |
+| ---------- | ----------------------------------------------------------------------------------------------------------- |
+| 2026-07-27 | Creación del documento. Refleja el estado tras el scaffolding de Next.js.                                   |
+| 2026-07-27 | Devcontainer, sección de estilo de código (Prettier + ESLint), pasos de Vercel y problemas conocidos.       |
+| 2026-07-27 | Contrato de las 5 variables de entorno, cómo cargarlas en Codespaces y Vercel, y comandos de base de datos. |

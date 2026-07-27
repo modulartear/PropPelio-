@@ -11,6 +11,12 @@ npm ci --no-audit --no-fund || npm install --no-audit --no-fund
 echo "==> Instalando Claude Code..."
 npm install -g @anthropic-ai/claude-code --no-audit --no-fund
 
+# El cliente de Prisma se genera a src/generated/prisma, que esta gitignoreado.
+# Sin este paso el Codespace arranca sin cliente y cualquier import falla.
+# No necesita conexion a la base: solo lee el schema.
+echo "==> Generando el cliente de Prisma..."
+npm run db:generate
+
 echo ""
 echo "=========================================================="
 echo " Codespace listo."

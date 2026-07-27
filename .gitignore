@@ -41,3 +41,12 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+/src/generated/prisma
+
+# Skills que instala `prisma init` para asistentes de codigo.
+# Son symlinks a .agents/, regenerables, y no los usamos. Ver D-016.
+/.claude/skills
+/.agents
+/.windsurf
+skills-lock.json
