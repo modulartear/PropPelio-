@@ -1,0 +1,104 @@
+# Setup — PropPelio
+
+Guía de puesta en marcha del entorno de desarrollo. **Todo el entorno es cloud:
+no se instala ni se corre nada en una máquina local.**
+
+> Este documento se actualiza a medida que se ejecuta cada tarea de setup.
+> Lo que está marcado como PENDIENTE todavía no se hizo — no asumas que está listo.
+
+---
+
+## 1. Estado actual del setup (Fase 0)
+
+| # | Tarea | Estado | Quién |
+|---|---|---|---|
+| 1 | Repo privado en GitHub | ✅ Hecho (`modulartear/PropPelio-`) | — |
+| 1b | Habilitar Codespaces sobre el repo | ⏳ PENDIENTE | Usuario |
+| 2 | Scaffolding Next.js (TS, App Router, Tailwind, ESLint, `src/`) | ✅ Hecho | Claude |
+| 3 | `devcontainer.json` | ⏳ PENDIENTE | Claude |
+| 4 | Prettier + ESLint | ⏳ PENDIENTE | Claude |
+| 5 | Proyecto en Supabase + credenciales | ⏳ PENDIENTE | Usuario |
+| 6 | Prisma apuntando a Supabase | ⏳ PENDIENTE | Claude |
+| 7 | `@supabase/supabase-js` (Auth + Storage) | ⏳ PENDIENTE | Claude |
+| 8 | Env vars como Codespaces secrets + Vercel | ⏳ PENDIENTE | Ambos |
+| 9 | Repo conectado a Vercel + deploy "hello world" | ⏳ PENDIENTE | Usuario |
+| 10 | Dominio raíz + wildcard `*.dominio.com` en Vercel | ⏳ PENDIENTE | Usuario |
+| 11 | Documentación en `/docs` | 🔄 En curso (este archivo) | Claude |
+
+---
+
+## 2. Abrir el entorno de desarrollo
+
+### Opción A — GitHub Codespaces (entorno oficial del proyecto)
+
+1. Ir a `https://github.com/modulartear/PropPelio-`.
+2. Botón **Code → Codespaces → Create codespace on `<rama>`**.
+3. Esperar a que el contenedor termine de construirse. El `postCreateCommand`
+   del devcontainer instala las dependencias automáticamente — no hace falta
+   correr `npm install` a mano.
+4. `npm run dev` → Codespaces expone el puerto 3000 y ofrece abrirlo en el navegador.
+
+> ⏳ El `.devcontainer/devcontainer.json` todavía no está creado (tarea 3).
+> Hasta que lo esté, después de crear el Codespace hay que correr `npm install` manualmente.
+
+### Opción B — Claude Code on the web
+
+Contenedor remoto efímero que clona el repo al arrancar. Sirve para trabajo
+asistido, pero **no** lee `.devcontainer/devcontainer.json`, así que no es
+prueba de que el Codespace levante bien. Esa verificación se hace en Codespaces.
+
+---
+
+## 3. Requisitos del entorno
+
+| Herramienta | Versión | Nota |
+|---|---|---|
+| Node.js | 22.x | Fijada por el devcontainer (tarea 3) |
+| npm | 10.x | Gestor de paquetes del proyecto |
+
+---
+
+## 4. Comandos del proyecto
+
+```bash
+npm install      # instalar dependencias
+npm run dev      # servidor de desarrollo (http://localhost:3000)
+npm run build    # build de producción — usar antes de pushear
+npm run start    # servir el build de producción
+npm run lint     # ESLint
+```
+
+---
+
+## 5. Variables de entorno / secrets
+
+> ⏳ PENDIENTE (tarea 8). Todavía no hay ninguna variable definida porque el
+> proyecto de Supabase no está creado (tarea 5).
+
+**Regla del proyecto: no se commitea ningún `.env` con valores reales, y no se
+usa `.env.local` en disco.** Los valores viven en:
+
+- **GitHub → Settings → Secrets and variables → Codespaces** (para desarrollo).
+- **Vercel → Project → Settings → Environment Variables** (para preview y producción).
+
+El contrato de variables se documentará acá y en `.env.example` cuando se
+ejecute la tarea 8.
+
+---
+
+## 6. Deploys
+
+> ⏳ PENDIENTE (tarea 9). El repo todavía no está conectado a Vercel.
+
+Modelo previsto una vez conectado:
+
+- Push a cualquier rama → **preview deployment** con URL propia.
+- Push a `main` → **deploy de producción**.
+
+---
+
+## 7. Historial de cambios de este documento
+
+| Fecha | Cambio |
+|---|---|
+| 2026-07-27 | Creación del documento. Refleja el estado tras el scaffolding de Next.js. |
