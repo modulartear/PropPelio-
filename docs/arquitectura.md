@@ -23,7 +23,7 @@ landing pública personalizable por cliente con un builder visual tipo Elementor
 | Auth          | Supabase Auth                | ❌ No configurado                       |
 | Storage       | Supabase Storage             | ❌ No configurado                       |
 | Hosting / CI  | Vercel                       | ❌ No conectado                         |
-| Entorno dev   | GitHub Codespaces            | ⏳ Devcontainer pendiente               |
+| Entorno dev   | GitHub Codespaces            | ⏳ Devcontainer escrito, sin verificar  |
 
 Ver `docs/decisiones.md` para el porqué de cada versión fijada.
 

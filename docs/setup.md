@@ -143,17 +143,45 @@ ejecute la tarea 8.
 
 ## 6. Deploys
 
-> ⏳ PENDIENTE (tarea 9). El repo todavía no está conectado a Vercel.
+> ⏳ PENDIENTE (tarea 9). El repo todavía **no** está conectado a Vercel.
+> La página "hello world" que va a servir para verificarlo ya está en
+> `src/app/page.tsx`.
 
 Modelo previsto una vez conectado:
 
 - Push a cualquier rama → **preview deployment** con URL propia.
 - Push a `main` → **deploy de producción**.
 
+### Pasos para conectarlo
+
+1. [vercel.com/new](https://vercel.com/new) → **Import Git Repository** → elegir `PropPelio-`.
+2. Vercel autodetecta Next.js y npm. **No hay que cambiar** build command ni output directory.
+3. Deploy. Debería mostrar la página de Fase 0.
+4. Recién después cargar las Environment Variables (sección 5) — el hello world
+   no necesita ninguna.
+
 ---
 
-## 7. Historial de cambios de este documento
+## 7. Problemas conocidos
 
-| Fecha      | Cambio                                                                    |
-| ---------- | ------------------------------------------------------------------------- |
-| 2026-07-27 | Creación del documento. Refleja el estado tras el scaffolding de Next.js. |
+### La app de GitHub no tiene permiso de escritura sobre el repo
+
+**Síntoma:** `git push` devuelve `403 Forbidden` en `git-receive-pack`, y la API
+de GitHub devuelve `403 Resource not accessible by integration`. La lectura
+funciona bien.
+
+**Causa:** la instalación de la GitHub App tiene el permiso **Contents** en
+read-only sobre `modulartear/PropPelio-`.
+
+**Solución:** GitHub → Settings → Applications → Installed GitHub Apps →
+**Claude** → Configure → verificar que `PropPelio-` esté en _Repository access_
+y que **Contents** esté en **Read and write**.
+
+---
+
+## 8. Historial de cambios de este documento
+
+| Fecha      | Cambio                                                                                                |
+| ---------- | ----------------------------------------------------------------------------------------------------- |
+| 2026-07-27 | Creación del documento. Refleja el estado tras el scaffolding de Next.js.                             |
+| 2026-07-27 | Devcontainer, sección de estilo de código (Prettier + ESLint), pasos de Vercel y problemas conocidos. |
