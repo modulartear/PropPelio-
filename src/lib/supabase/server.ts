@@ -15,8 +15,14 @@ import { publicEnv } from "@/lib/env";
  * Sirve en Server Components, Server Actions y Route Handlers.
  */
 export async function createServerSupabaseClient() {
-  const { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } = publicEnv();
+  // `cookies()` va PRIMERO, antes de leer las variables de entorno, y el orden
+  // es funcional: es la llamada que le dice a Next que la ruta es dinamica.
+  // Si `publicEnv()` fuera antes y tirara error por una variable faltante,
+  // Next nunca veria el `cookies()`, intentaria prerenderizar la pagina en el
+  // build, y fallaria el build entero en vez de fallar en runtime. Un build no
+  // deberia necesitar credenciales.
   const almacenDeCookies = await cookies();
+  const { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } = publicEnv();
 
   return createServerClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
     cookies: {
