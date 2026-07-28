@@ -56,6 +56,8 @@ export default async function DetalleDePropiedad({ params }: { params: Promise<{
     addressCity: propiedad.addressCity,
     addressProvince: propiedad.addressProvince,
     addressZip: propiedad.addressZip,
+    latitude: propiedad.latitude,
+    longitude: propiedad.longitude,
     bedrooms: propiedad.bedrooms,
     bathrooms: propiedad.bathrooms,
     totalArea: propiedad.totalArea,

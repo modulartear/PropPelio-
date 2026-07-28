@@ -36,6 +36,8 @@ export type ValoresDePropiedad = {
   addressCity: string;
   addressProvince: string;
   addressZip: string | null;
+  latitude: number | null;
+  longitude: number | null;
   bedrooms: number | null;
   bathrooms: number | null;
   totalArea: number | null;
@@ -103,6 +105,16 @@ export function validarPropiedad(
   const addressProvince = texto(fd, "addressProvince");
   if (!addressProvince) errores.addressProvince = "Falta la provincia.";
 
+  const latitude = numeroOpcional(fd, "latitude");
+  if (latitude === undefined) errores.latitude = "Latitud inválida.";
+  else if (latitude !== null && (latitude < -90 || latitude > 90))
+    errores.latitude = "Latitud fuera de rango.";
+
+  const longitude = numeroOpcional(fd, "longitude");
+  if (longitude === undefined) errores.longitude = "Longitud inválida.";
+  else if (longitude !== null && (longitude < -180 || longitude > 180))
+    errores.longitude = "Longitud fuera de rango.";
+
   const camposEnteros = ["bedrooms", "bathrooms", "garageSpaces"] as const;
   const enteros: Record<(typeof camposEnteros)[number], number | null> = {
     bedrooms: null,
@@ -146,6 +158,8 @@ export function validarPropiedad(
       addressCity,
       addressProvince,
       addressZip: textoOpcional(fd, "addressZip"),
+      latitude: latitude as number | null,
+      longitude: longitude as number | null,
       bedrooms: enteros.bedrooms,
       bathrooms: enteros.bathrooms,
       totalArea: areas.totalArea,

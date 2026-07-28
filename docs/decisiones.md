@@ -574,3 +574,44 @@ consecuencias mecánicas de una decisión previa, sin margen real de elección.
   migración SQL más (bajo costo). Separar `SOLD` en dos estados distintos más
   adelante es una migración de datos, no solo de esquema: hay que decidir qué
   hacer con las filas existentes.
+
+## D-031 — Google Maps: script cargado directo, sin paquete de npm; autocompletado como método principal de ubicación
+
+- **Fecha:** 2026-07-28
+- **Fase:** 3.2
+- **Decidió:** el usuario del proyecto (autocompletado vs. geocoding manual
+  vs. sin geocoding) + Claude (detalles de implementación)
+- **Contexto:** con la API key de Google Cloud Console ya generada y
+  restringida (HTTP referrer + restricción por API — Maps JavaScript,
+  Places, Geocoding), había que decidir cómo se completa la ubicación de una
+  propiedad. Se le presentaron tres opciones al usuario: autocompletado de
+  Google Places (completa todo solo), geocoding manual con botón + mapa
+  ajustable, o solo mapa sin geocoding.
+- **Decisión (UX):** autocompletado de dirección como método principal. Un
+  campo de búsqueda con `google.maps.places.Autocomplete` completa calle,
+  ciudad, provincia, código postal y coordenadas al elegir una sugerencia.
+  Los campos de dirección siguen siendo inputs editables a mano por si el
+  autocompletado se equivoca, y el mapa muestra un pin **arrastrable** para
+  corregir la posición sin tener que re-tipear la dirección — un agregado de
+  bajo costo sobre la opción elegida, no un cambio de flujo: seguir
+  necesitando la búsqueda para ubicar una propiedad por primera vez, el
+  arrastre es solo un ajuste fino.
+- **Decisión (implementación):** la Maps JavaScript API se carga con
+  `next/script` (`https://maps.googleapis.com/maps/api/js?...`), no con un
+  paquete de npm (tipo `@googlemaps/js-api-loader` o `@vis.gl/react-google-maps`).
+  Es la forma más directa de tener `Autocomplete`, `Map` y `Marker`
+  disponibles del lado del cliente sin sumar una dependencia de runtime para
+  algo que en el fondo es un `<script>`.
+- **Se instaló** `@types/google.maps` como **devDependency** (sin código en
+  runtime, solo tipos) para tipar `google.maps.*` sin escribir declaraciones
+  ambient a mano — coherente con que el resto de la base evita reescribir a
+  mano lo que ya existe como tipo oficial.
+- **Sin restricción de país** en el autocompletado: aunque las monedas por
+  defecto sugieren un enfoque en Argentina, restringir el autocompletado a un
+  país sería una decisión de producto (qué mercados sirve el SaaS) que no
+  está en el plan y no le correspondía a Claude decidir sola. Queda como
+  mejora fácil de sumar (`componentRestrictions: { country: "ar" }`) si el
+  usuario lo pide.
+- **Costo / reversibilidad:** Bajo. Cambiar la estrategia de carga del script
+  o sumar restricción de país son cambios locales a `location-field.tsx`, sin
+  tocar el modelo de datos ni las Server Actions.

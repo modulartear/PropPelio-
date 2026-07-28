@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { LocationField } from "@/components/properties/location-field";
 import type { EstadoDeFormulario } from "@/lib/properties/acciones";
 import {
   CURRENCIES,
@@ -157,34 +158,23 @@ export function PropertyForm({
       </Seccion>
 
       <Seccion titulo="Ubicación">
-        <CampoAncho>
-          <Campo
-            etiqueta="Calle y altura"
-            nombre="addressStreet"
-            defaultValue={v?.addressStreet}
-            error={errores.addressStreet}
-            requerido
-          />
-        </CampoAncho>
-        <Campo
-          etiqueta="Ciudad"
-          nombre="addressCity"
-          defaultValue={v?.addressCity}
-          error={errores.addressCity}
-          requerido
-        />
-        <Campo
-          etiqueta="Provincia"
-          nombre="addressProvince"
-          defaultValue={v?.addressProvince}
-          error={errores.addressProvince}
-          requerido
-        />
-        <Campo
-          etiqueta="Código postal"
-          nombre="addressZip"
-          defaultValue={v?.addressZip ?? ""}
-          error={errores.addressZip}
+        <LocationField
+          valoresIniciales={{
+            addressStreet: v?.addressStreet,
+            addressCity: v?.addressCity,
+            addressProvince: v?.addressProvince,
+            addressZip: v?.addressZip,
+            latitude: v?.latitude,
+            longitude: v?.longitude,
+          }}
+          errores={{
+            addressStreet: errores.addressStreet,
+            addressCity: errores.addressCity,
+            addressProvince: errores.addressProvince,
+            addressZip: errores.addressZip,
+            latitude: errores.latitude,
+            longitude: errores.longitude,
+          }}
         />
       </Seccion>
 

@@ -132,4 +132,34 @@ describe("validarPropiedad", () => {
     assert.ok("valores" in r);
     if ("valores" in r) assert.equal(r.valores.description, null);
   });
+
+  it("acepta latitud y longitud negativas (a diferencia de dormitorios, aca es valido)", () => {
+    const r = validarPropiedad(formularioValido({ latitude: "-34.6037", longitude: "-58.3816" }));
+    assert.ok("valores" in r, JSON.stringify(r));
+    if ("valores" in r) {
+      assert.equal(r.valores.latitude, -34.6037);
+      assert.equal(r.valores.longitude, -58.3816);
+    }
+  });
+
+  it("lat/lng vacios son validos (null): la ubicacion en el mapa es opcional", () => {
+    const r = validarPropiedad(formularioValido());
+    assert.ok("valores" in r);
+    if ("valores" in r) {
+      assert.equal(r.valores.latitude, null);
+      assert.equal(r.valores.longitude, null);
+    }
+  });
+
+  it("rechaza latitud fuera de rango", () => {
+    const r = validarPropiedad(formularioValido({ latitude: "200" }));
+    assert.ok("errores" in r);
+    if ("errores" in r) assert.ok(r.errores.latitude);
+  });
+
+  it("rechaza longitud fuera de rango", () => {
+    const r = validarPropiedad(formularioValido({ longitude: "-200" }));
+    assert.ok("errores" in r);
+    if ("errores" in r) assert.ok(r.errores.longitude);
+  });
 });

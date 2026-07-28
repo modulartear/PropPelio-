@@ -164,6 +164,32 @@ vivo.
 /admin/propiedades/[id]      → edición + gestión de fotos + borrado
 ```
 
+### Mapa y geocoding (Google Maps)
+
+`src/components/properties/location-field.tsx`, usado dentro de
+`PropertyForm` en la sección "Ubicación". Ver D-031 para el porqué de cada
+decisión; acá solo el cómo:
+
+- Un campo de búsqueda con `google.maps.places.Autocomplete` completa calle,
+  ciudad, provincia, código postal y coordenadas al elegir una sugerencia.
+  Los campos de dirección quedan editables a mano igual.
+- El mapa muestra un pin arrastrable para ajustar la posición sin tener que
+  volver a buscar la dirección.
+- La API de Google se carga con `next/script`, no con un paquete de npm.
+  `@types/google.maps` es una **devDependency** (solo tipos, cero código en
+  runtime).
+- La clave pública vive en `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`, leída por
+  `googleMapsEnv()` en `src/lib/env.ts` — separada de `publicEnv()` a
+  propósito, para que solo las páginas que de verdad usan el mapa puedan
+  romper por esta variable faltante.
+
+**Pendiente de quien despliega:** cargar `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`
+como Codespaces secret (repo `PropPelio-`) y como Environment Variable en
+Vercel — el mismo mecanismo que el resto de las variables públicas del
+proyecto (ver `.env.example`). El valor sale de Google Cloud Console >
+APIs & Services > Credentials, restringido por HTTP referrer + por API
+(Maps JavaScript, Places, Geocoding).
+
 ---
 
 ## Verificación
@@ -194,3 +220,8 @@ npm run build  # /tenants/[por]/[valor]/admin/propiedades* compilan como rutas d
    (panel de Supabase Storage) y no solo de la base.
 7. Con sesión de `tenant-a`, escribir a mano la URL de una propiedad de
    `tenant-b` (`/admin/propiedades/<id-de-otro-tenant>`) → **404**.
+8. Con `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` configurada: en "Ubicación",
+   escribir una dirección en "Buscar dirección" y elegir una sugerencia →
+   se completan calle/ciudad/provincia/CP y aparece el pin en el mapa.
+   Arrastrar el pin y confirmar que se guarda la nueva posición al guardar
+   la propiedad.
