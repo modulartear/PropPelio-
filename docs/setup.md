@@ -310,6 +310,36 @@ así que agregar orígenes ahí sería ampliar la superficie de CSRF sin motivo.
 > Si aparece de nuevo, reiniciá `npm run dev`: `next.config.ts` se lee al
 > arrancar, no en caliente.
 
+### `<subdominio>.localhost:3000` no conecta desde el navegador en Codespaces
+
+**Síntoma:** `http://localhost:3000` conecta bien, pero
+`http://cualquier-tenant.localhost:3000` da `ERR_CONNECTION_REFUSED`, incluso
+agregando la entrada al archivo hosts del sistema operativo.
+
+**Causa:** el mecanismo de reenvío de puertos de Codespaces (sea el túnel de
+VS Code Desktop o el proxy del navegador) no siempre tunelea de forma
+confiable un host inventado como `<algo>.localhost` — solo garantiza
+`localhost` a secas. No se pudo aislar la causa exacta (depende de cómo esté
+configurado el Codespace de cada uno), así que no hay una solución universal.
+
+**Atajo para seguir probando de todos modos (solo desarrollo):** agregar
+`?tenant=<subdominio>` a cualquier URL del dominio raíz simula ese
+subdominio sin necesitar que el navegador lo resuelva:
+
+```
+http://localhost:3000/admin?tenant=diseartevt
+```
+
+Implementado en `src/middleware.ts`, activo únicamente cuando
+`NODE_ENV=development` (nunca en producción). Ver D-032.
+
+**Ojo con el login:** el redirect post-login sigue armando la URL con el
+subdominio real (`http://<subdominio>.localhost:3000/admin`), porque no hay
+forma de saber desde el servidor si quien se loguea puede resolver ese host o
+no. Si ese redirect da el mismo error de conexión, la sesión ya se creó
+igual — no hay que loguearse de nuevo, alcanza con navegar a mano a la URL
+con `?tenant=`.
+
 ### Un Codespace nuevo puede arrancar con el repo desactualizado
 
 **Síntoma:** creás un Codespace, y el explorador muestra sólo `README.md` con

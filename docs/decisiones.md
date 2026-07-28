@@ -615,3 +615,39 @@ consecuencias mecánicas de una decisión previa, sin margen real de elección.
 - **Costo / reversibilidad:** Bajo. Cambiar la estrategia de carga del script
   o sumar restricción de país son cambios locales a `location-field.tsx`, sin
   tocar el modelo de datos ni las Server Actions.
+
+## D-032 — Atajo `?tenant=` en desarrollo, para cuando el subdominio de `localhost` no tunelea bien en Codespaces
+
+- **Fecha:** 2026-07-28
+- **Fase:** 3.2
+- **Decidió:** el usuario del proyecto (eligió esta opción sobre seguir
+  depurando el túnel o confiar solo en tests automatizados)
+- **Contexto:** probar el panel de un tenant en un navegador real requiere
+  que `<subdominio>.localhost:3000` conecte. En el Codespace del usuario, eso
+  falló de forma persistente (`ERR_CONNECTION_REFUSED`) incluso agregando la
+  entrada al archivo hosts de Windows y confirmando que el server corría bien
+  — mientras que `localhost:3000` sin subdominio sí conectaba siempre. La
+  causa exacta (versión de VS Code, extensión de reenvío de puertos, alguna
+  política de red) no se pudo aislar en un tiempo razonable, y no hay
+  dominio real todavía para probar en Vercel (wildcard pospuesto, D-018).
+- **Decisión:** en `src/middleware.ts`, si el host resuelve como dominio raíz
+  Y `NODE_ENV === "development"` Y el request trae `?tenant=<subdominio>`,
+  el middleware simula el host `<subdominio>.<dominioRaiz>` — no solo para la
+  reescritura de la URL, sino reemplazando el header `Host` que ve el resto
+  del server (`getTenantFromRequest()` en Node lo vuelve a leer de forma
+  independiente, así que hacía falta tocar el header, no solo la URL
+  reescrita). Con esto, `localhost:3000/admin?tenant=diseartevt` funciona
+  igual que `diseartevt.localhost:3000/admin` sin depender de que el
+  navegador resuelva un host inventado.
+- **Por qué no es riesgo en producción:** el chequeo de `NODE_ENV` corta la
+  ruta completa — en Vercel (`NODE_ENV=production`) esta rama de código nunca
+  se ejecuta, así que no hay forma de "falsificar" un tenant vía query string
+  fuera de desarrollo local.
+- **Limitación conocida:** el login sigue redirigiendo a la URL con
+  subdominio real (`destinoPostLogin()` no sabe si el que lo usa puede
+  resolver ese host o no) — a propósito, para no romper el flujo normal de
+  quien SÍ puede resolver subdominios de `localhost`. Quien necesite el
+  atajo tiene que navegar a mano a la URL con `?tenant=` después de loguearse
+  (la sesión ya quedó creada, el login no hay que repetirlo).
+- **Costo / reversibilidad:** Muy bajo. Es un `if` acotado a desarrollo en un
+  solo archivo; se puede borrar sin dejar rastro cuando deje de hacer falta.
