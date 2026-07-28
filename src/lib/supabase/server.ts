@@ -1,34 +1,63 @@
 import "server-only";
 
-import { createClient } from "@supabase/supabase-js";
+import { createServerClient } from "@supabase/ssr";
+import { cookies } from "next/headers";
 
-import { publicEnv, serverEnv } from "@/lib/env";
+import { publicEnv } from "@/lib/env";
 
 /**
- * Cliente de Supabase para el SERVIDOR, con la secret key.
+ * Cliente de Supabase para el SERVIDOR, con la sesion del usuario.
  *
- * ⚠️ Esta clave BYPASEA TODAS las politicas de RLS. Cualquier query hecho con
- * este cliente ve la base entera, incluidos los datos de todos los tenants.
+ * Lee la sesion de las cookies, asi que actua EN NOMBRE del usuario logueado y
+ * queda sujeto a las politicas de RLS. Es lo contrario del cliente de
+ * `admin.ts`, que usa la secret key y las bypasea.
  *
- * Usarlo solo para operaciones administrativas que genuinamente necesitan
- * saltear RLS: alta de tenants desde el super-admin, tareas de mantenimiento,
- * webhooks. NUNCA para servir un request de un tenant — ahi el filtro por
- * `tenantId` es lo unico que separa a un cliente de los datos de otro, y esta
- * clave lo anula.
- *
- * El import de "server-only" hace que el build falle si este modulo termina
- * alcanzado desde un Client Component, en vez de filtrar la clave al browser.
+ * Sirve en Server Components, Server Actions y Route Handlers.
  */
-export function createAdminSupabaseClient() {
-  const { SUPABASE_SECRET_KEY } = serverEnv();
-  const { SUPABASE_URL } = publicEnv();
+export async function createServerSupabaseClient() {
+  // `cookies()` va PRIMERO, antes de leer las variables de entorno, y el orden
+  // es funcional: es la llamada que le dice a Next que la ruta es dinamica.
+  // Si `publicEnv()` fuera antes y tirara error por una variable faltante,
+  // Next nunca veria el `cookies()`, intentaria prerenderizar la pagina en el
+  // build, y fallaria el build entero en vez de fallar en runtime. Un build no
+  // deberia necesitar credenciales.
+  const almacenDeCookies = await cookies();
+  const { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } = publicEnv();
 
-  return createClient(SUPABASE_URL, SUPABASE_SECRET_KEY, {
-    auth: {
-      // Un cliente administrativo no tiene sesion de usuario que persistir ni
-      // refrescar: se crea por request y se descarta.
-      persistSession: false,
-      autoRefreshToken: false,
+  return createServerClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+    cookies: {
+      getAll() {
+        return almacenDeCookies.getAll();
+      },
+      setAll(cookiesNuevas) {
+        try {
+          for (const { name, value, options } of cookiesNuevas) {
+            almacenDeCookies.set(name, value, options);
+          }
+        } catch {
+          // Los Server Components no pueden escribir cookies: solo el
+          // middleware, las Server Actions y los Route Handlers pueden.
+          // Se ignora a proposito — el middleware ya refresco la sesion antes
+          // de llegar aca, asi que no se pierde nada.
+        }
+      },
     },
   });
+}
+
+/**
+ * Devuelve el usuario autenticado de Supabase, o `null`.
+ *
+ * Usa `getUser()` y NO `getSession()`. La diferencia es de seguridad: los
+ * datos de `getSession()` salen de la cookie y podrian estar manipulados,
+ * mientras que `getUser()` los valida contra el servidor de Supabase. En el
+ * servidor hay que usar siempre `getUser()`.
+ */
+export async function getAuthUser() {
+  const supabase = await createServerSupabaseClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  return user;
 }

@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 import { rootDomain } from "@/lib/env";
+import { refrescarSesion } from "@/lib/supabase/middleware";
 import { busquedaDeTenant, resolverHost } from "@/lib/tenant/host";
 
 /**
@@ -19,30 +20,38 @@ import { busquedaDeTenant, resolverHost } from "@/lib/tenant/host";
  * `tenantId` se resuelve del lado del servidor, ya en Node, en
  * `src/lib/tenant/resolve.ts`. Ver D-019.
  */
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const host = request.headers.get("host");
   const resuelto = resolverHost(host, rootDomain());
 
-  // Sitio de marketing: sigue de largo sin tocar la URL.
-  if (resuelto.tipo === "raiz") {
-    return NextResponse.next();
-  }
-
   // Host que no puede pertenecer a ningun tenant (subdominio reservado,
-  // anidado, o sin header Host). Se responde 404 sin llegar a la base.
+  // anidado, o sin header Host). Se corta antes de tocar la base y antes de
+  // gastar un refresco de sesion.
   if (resuelto.tipo === "invalido") {
     return new NextResponse(null, { status: 404 });
   }
 
-  const busqueda = busquedaDeTenant(resuelto);
-  if (!busqueda) {
-    return new NextResponse(null, { status: 404 });
+  // La respuesta se arma ANTES de refrescar la sesion, porque `refrescarSesion`
+  // escribe las cookies renovadas sobre ella. Crear otra despues perderia esas
+  // cookies y el usuario quedaria deslogueado de a ratos, sin patron aparente.
+  let response: NextResponse;
+
+  if (resuelto.tipo === "raiz") {
+    // Sitio de marketing y flujos de auth (login, registro): sin reescritura.
+    response = NextResponse.next({ request });
+  } else {
+    const busqueda = busquedaDeTenant(resuelto);
+    if (!busqueda) {
+      return new NextResponse(null, { status: 404 });
+    }
+
+    const url = request.nextUrl.clone();
+    url.pathname = `/tenants/${busqueda.por}/${encodeURIComponent(busqueda.valor)}${request.nextUrl.pathname}`;
+
+    response = NextResponse.rewrite(url, { request });
   }
 
-  const url = request.nextUrl.clone();
-  url.pathname = `/tenants/${busqueda.por}/${encodeURIComponent(busqueda.valor)}${request.nextUrl.pathname}`;
-
-  return NextResponse.rewrite(url);
+  return refrescarSesion(request, response);
 }
 
 export const config = {

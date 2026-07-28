@@ -21,7 +21,7 @@ landing pública personalizable por cliente con un builder visual tipo Elementor
 | Componentes   | shadcn/ui                    | ❌ No instalado (no es tarea de Fase 0) |
 | Base de datos | Postgres (Supabase)          | ✅ Conectado y verificado (sa-east-1)   |
 | ORM           | Prisma 7.9.0                 | ✅ Migración aplicada a Supabase        |
-| Auth          | Supabase Auth                | ⏳ Cliente listo, sin usar (Fase 2)     |
+| Auth          | Supabase Auth                | ✅ Login, registro y roles              |
 | Storage       | Supabase Storage             | ⏳ Cliente listo, sin usar (Fase 3)     |
 | Hosting / CI  | Vercel                       | ✅ Conectado y deployando               |
 | Entorno dev   | GitHub Codespaces            | ✅ Devcontainer verificado              |
@@ -107,9 +107,11 @@ Dos capas de aislamiento, independientes entre sí:
    devuelve un cliente que inyecta el filtro en todo query. Una regla de ESLint
    bloquea importar el cliente crudo fuera de `src/lib/db/**`, así saltear la
    capa es un error de lint y no una fuga que se descubre en producción.
-2. **Capa de base de datos (RLS de Supabase):** ⏳ Fase 2. Las políticas filtran
-   por el usuario autenticado, que todavía no existe. Es la red de contención si
-   la capa 1 falla.
+2. **Capa de base de datos (RLS de Supabase):** ✅ implementada en la Fase 2.
+   Rol `app_user` sin `BYPASSRLS`, políticas que comparan contra
+   `app.tenant_id`, y una segunda conexión (`DATABASE_ADMIN_URL`) confinada a
+   las operaciones previas al tenant. Verificada con `npm run db:verify-rls`.
+   Ver D-025 y [`docs/fase-2-auth.md`](fase-2-auth.md).
 
 ### Resolución del tenant
 
