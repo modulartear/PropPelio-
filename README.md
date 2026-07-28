@@ -3,7 +3,7 @@
 SaaS multi-tenant para inmobiliarias: panel administrativo estilo Tokko Broker más
 landing pública personalizable por cliente con un builder visual tipo Elementor.
 
-**Estado: Fase 1 (núcleo multi-tenant).** Resolución de tenant por subdominio y dominio propio, con aislamiento de datos forzado. Todavía no hay autenticación ni lógica de negocio.
+**Estado: Fase 2 (autenticación y roles).** Resolución de tenant por subdominio y dominio propio, aislamiento en dos capas (aplicación + RLS), login y registro self-service. Todavía no hay lógica de negocio.
 
 ## Stack
 
