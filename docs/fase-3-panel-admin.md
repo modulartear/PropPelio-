@@ -90,6 +90,28 @@ Sigue atado a `prefers-color-scheme`, no a una clase `.dark`. Ver D-029: el
 `@custom-variant dark` que trae el template de shadcn habría apagado en
 silencio el dark mode que ya usan las páginas de fases anteriores.
 
+### Bug encontrado al fin poder ver el panel en un navegador real (3.2)
+
+`NAV_ITEMS` guardaba el componente de ícono de lucide-react directo
+(`icon: LayoutDashboard`, etc.). Como el layout del panel es un Server
+Component y `PanelShell`/`SidebarNav` son Client Components, pasar ese
+componente como prop cruza el límite server→client — y un componente de
+lucide-react es un objeto `forwardRef` (tiene un método `render`), no un
+objeto plano, así que React lo rechaza: `Only plain objects can be passed
+to Client Components from Server Components`.
+
+Este bug estaba desde que se armó `nav-items.ts` en 3.1, pero nunca se vio
+en un navegador real hasta la sub-etapa 3.2, cuando por fin se pudo llegar
+al panel con sesión real (ver "problemas conocidos" en `docs/setup.md` sobre
+por qué costó tanto). El build, el lint y los tests nunca lo iban a agarrar:
+es un error de serialización en tiempo de ejecución del lado del servidor,
+no un error de tipos ni de lógica pura.
+
+**Arreglo:** `NAV_ITEMS` guarda el *nombre* del ícono (`icon:
+"LayoutDashboard"`, un string), no el componente. El mapa de nombre →
+componente vive en `sidebar-nav.tsx`, que sí es un Client Component y puede
+importar los íconos de lucide-react sin problema.
+
 ---
 
 ## 3.2 — CRUD de propiedades

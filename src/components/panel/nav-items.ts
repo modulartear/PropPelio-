@@ -1,14 +1,3 @@
-import {
-  Building2,
-  Calculator,
-  FileText,
-  Inbox,
-  LayoutDashboard,
-  Settings,
-  Users,
-  type LucideIcon,
-} from "lucide-react";
-
 /**
  * Navegación del panel de un tenant.
  *
@@ -22,11 +11,21 @@ import {
  * link apuntara a ese prefijo, el middleware lo tomaría como un pathname
  * normal y le agregaría el prefijo DE NUEVO, duplicándolo. El browser tiene
  * que ver siempre `tenant.dominio.com/admin`, nunca la ruta interna.
+ *
+ * `icon` es el NOMBRE del ícono (no el componente de lucide-react en sí):
+ * este archivo lo importa un Server Component (el layout del panel), y un
+ * componente de ícono de lucide-react es un objeto `forwardRef` — no un
+ * objeto plano — así que no se puede pasar de un Server Component a un
+ * Client Component (React tira "Only plain objects can be passed..."). El
+ * componente real se resuelve del lado del cliente, en `SidebarNav`.
  */
+export type NombreDeIcono =
+  "LayoutDashboard" | "Building2" | "Inbox" | "Calculator" | "FileText" | "Users" | "Settings";
+
 export type ItemDeNav = {
   href: string;
   label: string;
-  icon: LucideIcon;
+  icon: NombreDeIcono;
   /** Sólo visible para TENANT_ADMIN. Ausente = visible para cualquier rol de tenant. */
   soloAdmin?: boolean;
   /**
@@ -37,22 +36,27 @@ export type ItemDeNav = {
 };
 
 export const NAV_ITEMS: ItemDeNav[] = [
-  { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/admin/propiedades", label: "Propiedades", icon: Building2 },
-  { href: "/admin/consultas", label: "Consultas", icon: Inbox, proximamente: true },
-  { href: "/admin/tasaciones", label: "Tasaciones", icon: Calculator, proximamente: true },
-  { href: "/admin/documentacion", label: "Documentación", icon: FileText, proximamente: true },
+  { href: "/admin", label: "Dashboard", icon: "LayoutDashboard" },
+  { href: "/admin/propiedades", label: "Propiedades", icon: "Building2" },
+  { href: "/admin/consultas", label: "Consultas", icon: "Inbox", proximamente: true },
+  { href: "/admin/tasaciones", label: "Tasaciones", icon: "Calculator", proximamente: true },
+  {
+    href: "/admin/documentacion",
+    label: "Documentación",
+    icon: "FileText",
+    proximamente: true,
+  },
   {
     href: "/admin/usuarios",
     label: "Usuarios",
-    icon: Users,
+    icon: "Users",
     soloAdmin: true,
     proximamente: true,
   },
   {
     href: "/admin/configuracion",
     label: "Marca y configuración",
-    icon: Settings,
+    icon: "Settings",
     soloAdmin: true,
     proximamente: true,
   },
