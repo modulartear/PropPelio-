@@ -42,3 +42,17 @@ export async function buscarTenantActivo(
     select: { id: true, name: true, subdomain: true, customDomain: true },
   });
 }
+
+/**
+ * Busca un tenant por id. Se usa para armar el link al panel de un tenant
+ * DESPUES del login: el login vive en el dominio raiz (comun a todos), pero
+ * el panel vive en el subdominio de cada uno, y `User` sólo guarda el
+ * `tenantId` — hace falta este lookup para saber a que subdominio mandar al
+ * usuario.
+ */
+export async function buscarTenantPorId(id: string): Promise<TenantContext | null> {
+  return prismaAdmin.tenant.findUnique({
+    where: { id },
+    select: { id: true, name: true, subdomain: true, customDomain: true },
+  });
+}

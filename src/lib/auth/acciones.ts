@@ -2,7 +2,8 @@
 
 import { redirect } from "next/navigation";
 
-import { crearTenantConAdmin, subdominioDisponible } from "@/lib/db/users";
+import { buscarTenantPorId } from "@/lib/db/tenants";
+import { buscarUsuarioPorAuthId, crearTenantConAdmin, subdominioDisponible } from "@/lib/db/users";
 import { rootDomain } from "@/lib/env";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { normalizarSubdominio, validarSubdominio } from "@/lib/tenant/subdominio";
@@ -41,13 +42,40 @@ export async function iniciarSesion(
   }
 
   const supabase = await createServerSupabaseClient();
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
-  if (error) {
+  if (error || !data.user) {
     return { error: ERROR_CREDENCIALES };
   }
 
-  redirect("/panel");
+  redirect(await destinoPostLogin(data.user.id));
+}
+
+/**
+ * A donde mandar a alguien recien logueado.
+ *
+ * El login vive en el dominio raiz — es comun a todos los tenants (ver el
+ * comentario de src/app/(auth)/layout.tsx) — pero el panel de cada uno vive
+ * en SU subdominio. Por eso el destino de un TENANT_ADMIN/TENANT_USER es una
+ * URL ABSOLUTA cruzando de origen, no una ruta relativa.
+ *
+ * `/panel` es el fallback: la pagina generica de Fase 2 que solo confirma que
+ * la sesion funciona. Se usa unicamente en casos que no deberian pasar en la
+ * practica (perfil sin fila en `users` todavia, o un tenant borrado con el
+ * usuario vivo) — nunca en el camino feliz.
+ */
+async function destinoPostLogin(authUserId: string): Promise<string> {
+  const perfil = await buscarUsuarioPorAuthId(authUserId);
+
+  if (!perfil) return "/panel";
+  if (perfil.role === "SUPER_ADMIN") return "/super-admin";
+  if (!perfil.tenantId) return "/panel";
+
+  const tenant = await buscarTenantPorId(perfil.tenantId);
+  if (!tenant) return "/panel";
+
+  const dominio = rootDomain();
+  return `${protocoloDe(dominio)}://${tenant.subdomain}.${dominio}/admin`;
 }
 
 export async function cerrarSesion() {

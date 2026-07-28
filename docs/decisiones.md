@@ -481,3 +481,58 @@ consecuencias mecánicas de una decisión previa, sin margen real de elección.
   Si más adelante hace falta "entrar como" un cliente para dar soporte, tiene
   que ser un flujo explícito y auditable, no un permiso implícito que nadie
   recuerda que existe.
+
+## D-028 — shadcn/ui instalado a mano: `ui.shadcn.com` está bloqueado en este entorno
+
+- **Fecha:** 2026-07-28
+- **Fase:** 3.1
+- **Decidió:** Claude (forzado por restricción de red)
+- **Contexto:** `npx shadcn@latest init` falla: el CLI llama a
+  `https://ui.shadcn.com/init?...` para resolver el registro de componentes, y
+  ese host está bloqueado por la política de red de este entorno de ejecución
+  (`connect_rejected`, 403 del proxy).
+- **Decisión:** instalar shadcn/ui a mano:
+  1. Componentes bajados **del código fuente oficial** vía
+     `raw.githubusercontent.com/shadcn-ui/ui` (ese host sí es alcanzable),
+     no reescritos de memoria — así no hay divergencia con lo que el CLI
+     habría generado.
+  2. Dependencias runtime instaladas por npm directo: `radix-ui` (paquete
+     unificado que usa la versión actual del registro, no los `@radix-ui/react-*`
+     sueltos de versiones viejas), `class-variance-authority`, `clsx`,
+     `tailwind-merge`, `lucide-react`, `tw-animate-css`.
+  3. `components.json` y el tema de `globals.css` escritos a mano siguiendo el
+     preset **new-york + neutral**, que es el que generan los componentes
+     descargados (se verificó inspeccionando qué variables CSS y qué clases de
+     utilidad usa cada componente antes de escribir el tema).
+- **Se descartó** el preset "Nova" (el default actual del CLI, con
+  `@import "shadcn/tailwind.css"` y utilidades propias como `scroll-fade`):
+  los componentes bajados no usan ninguna de esas utilidades, así que sumar esa
+  capa habría sido peso sin uso.
+- **Verificado:** build, typecheck, lint y los 57 tests pasan con el tema
+  aplicado; `next build` compila el CSS de Tailwind v4 sin errores de sintaxis.
+- **Costo / reversibilidad:** Bajo. Si en algún momento `ui.shadcn.com` deja de
+  estar bloqueado, agregar componentes nuevos con el CLI normal (`shadcn add`)
+  funciona igual — `components.json` es el archivo que el CLI espera encontrar,
+  y quedó escrito con la configuración correcta.
+
+## D-029 — Dark mode sigue atado a `prefers-color-scheme`, no a una clase `.dark`
+
+- **Fecha:** 2026-07-28
+- **Fase:** 3.1
+- **Decidió:** Claude
+- **Contexto:** El `globals.css` que genera shadcn/ui incluye
+  `@custom-variant dark (&:is(.dark *));`, que redefine el variante `dark:` de
+  Tailwind para que dependa de una clase en `<html>` en vez de la preferencia
+  del sistema operativo.
+- **Problema si se adoptaba tal cual:** las páginas ya escritas (`page.tsx`,
+  `panel/page.tsx`, la landing de tenant) usan `dark:` confiando en el
+  comportamiento por defecto de Tailwind (media query). No existe ningún
+  toggle que aplique la clase `.dark`. Adoptar el `@custom-variant` de shadcn
+  habría **apagado el dark mode que ya funcionaba**, en silencio.
+- **Decisión:** las variables de tema de shadcn se definen en `:root` y se
+  sobreescriben dentro de `@media (prefers-color-scheme: dark)`, sin tocar el
+  variante `dark:` de Tailwind. Mismo resultado visual, sin regresión.
+- **Cuándo migrar:** si en algún momento se agrega un selector de tema manual
+  (común en paneles admin), ahí conviene pasar a `.dark` + `next-themes`, y de
+  paso consolidar los `dark:` sueltos del código para que lean de las mismas
+  variables que los componentes de shadcn.
