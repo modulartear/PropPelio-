@@ -88,3 +88,26 @@ export function publicEnv() {
     ),
   } as const;
 }
+
+/**
+ * Clave de Google Maps/Places/Geocoding. Separada de {@link publicEnv} a
+ * proposito, mismo motivo por el que existen `serverEnv`/`publicEnv`
+ * separadas: solo las paginas que de verdad usan el mapa deben poder romper
+ * por esta variable faltante, no cualquier cosa que solo necesite Supabase.
+ *
+ * Publica por diseño: la usan las APIs de JS de Google que corren en el
+ * browser. Su seguridad no depende de mantenerla en secreto sino de las
+ * restricciones que se le configuran en Google Cloud Console — referrer HTTP
+ * (solo los dominios del proyecto) + restriccion por API (solo Maps
+ * JavaScript, Places, Geocoding). Sin esas restricciones, cualquiera que la
+ * vea en el bundle podria usarla desde otro sitio y consumir la
+ * cuota/facturacion.
+ */
+export function googleMapsEnv() {
+  return {
+    GOOGLE_MAPS_API_KEY: required(
+      "NEXT_PUBLIC_GOOGLE_MAPS_API_KEY",
+      process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY,
+    ),
+  } as const;
+}

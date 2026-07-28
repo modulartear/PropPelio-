@@ -22,7 +22,35 @@ import { busquedaDeTenant, resolverHost } from "@/lib/tenant/host";
  */
 export async function middleware(request: NextRequest) {
   const host = request.headers.get("host");
-  const resuelto = resolverHost(host, rootDomain());
+  const dominioRaiz = rootDomain();
+  let resuelto = resolverHost(host, dominioRaiz);
+
+  // Atajo SOLO de desarrollo: `?tenant=<subdominio>` sobre el dominio raiz
+  // simula `<subdominio>.dominioRaiz` sin depender de que el navegador
+  // resuelva un host inventado como `algo.localhost`. Hace falta porque el
+  // reenvio de puertos de Codespaces no siempre tunelea bien esos hosts (ver
+  // docs/setup.md) — sin esto, probar el panel de un tenant en un navegador
+  // real desde un Codespace puede ser imposible. `hostSimulado` reemplaza el
+  // header `Host` que ve el resto de la app (incluido `getTenantFromRequest()`
+  // en Node), no solo la reescritura de acá: si no, esta pagina resolveria
+  // bien la URL pero el resto del server seguiria viendo el dominio raiz.
+  //
+  // El valor tambien se guarda en una cookie: sin esto, cada click en un link
+  // del menu (que apunta a `/admin/algo`, sin el query string) perderia el
+  // tenant simulado y volveria a caer en el dominio raiz. La cookie hace que
+  // el atajo sobreviva a la navegacion normal despues de usarlo una vez.
+  let hostSimulado: string | null = null;
+  let tenantParaCookie: string | null = null;
+  if (resuelto.tipo === "raiz" && process.env.NODE_ENV === "development") {
+    const tenantDeDesarrollo =
+      request.nextUrl.searchParams.get("tenant") ?? request.cookies.get("dev-tenant")?.value;
+
+    if (tenantDeDesarrollo) {
+      hostSimulado = `${tenantDeDesarrollo}.${dominioRaiz}`;
+      resuelto = resolverHost(hostSimulado, dominioRaiz);
+      tenantParaCookie = tenantDeDesarrollo;
+    }
+  }
 
   // Host que no puede pertenecer a ningun tenant (subdominio reservado,
   // anidado, o sin header Host). Se corta antes de tocar la base y antes de
@@ -31,6 +59,14 @@ export async function middleware(request: NextRequest) {
     return new NextResponse(null, { status: 404 });
   }
 
+  const requestParaElResto = hostSimulado
+    ? (() => {
+        const headersSimulados = new Headers(request.headers);
+        headersSimulados.set("host", hostSimulado);
+        return { headers: headersSimulados };
+      })()
+    : request;
+
   // La respuesta se arma ANTES de refrescar la sesion, porque `refrescarSesion`
   // escribe las cookies renovadas sobre ella. Crear otra despues perderia esas
   // cookies y el usuario quedaria deslogueado de a ratos, sin patron aparente.
@@ -38,7 +74,7 @@ export async function middleware(request: NextRequest) {
 
   if (resuelto.tipo === "raiz") {
     // Sitio de marketing y flujos de auth (login, registro): sin reescritura.
-    response = NextResponse.next({ request });
+    response = NextResponse.next({ request: requestParaElResto });
   } else {
     const busqueda = busquedaDeTenant(resuelto);
     if (!busqueda) {
@@ -48,10 +84,19 @@ export async function middleware(request: NextRequest) {
     const url = request.nextUrl.clone();
     url.pathname = `/tenants/${busqueda.por}/${encodeURIComponent(busqueda.valor)}${request.nextUrl.pathname}`;
 
-    response = NextResponse.rewrite(url, { request });
+    response = NextResponse.rewrite(url, { request: requestParaElResto });
   }
 
-  return refrescarSesion(request, response);
+  const respuestaFinal = await refrescarSesion(request, response);
+
+  if (tenantParaCookie) {
+    respuestaFinal.cookies.set("dev-tenant", tenantParaCookie, {
+      path: "/",
+      sameSite: "lax",
+    });
+  }
+
+  return respuestaFinal;
 }
 
 export const config = {

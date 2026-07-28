@@ -39,6 +39,14 @@ const nextConfig: NextConfig = {
       allowedOrigins: origenesPermitidos(),
     },
   },
+  images: {
+    // Las fotos de propiedades viven en Supabase Storage, no en este dominio.
+    // El project-ref varia por entorno (dev/preview/produccion), asi que se
+    // permite cualquier subdominio de supabase.co en vez de fijar uno.
+    remotePatterns: [
+      { protocol: "https", hostname: "*.supabase.co", pathname: "/storage/v1/object/public/**" },
+    ],
+  },
 };
 
 export default nextConfig;

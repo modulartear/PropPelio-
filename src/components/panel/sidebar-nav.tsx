@@ -1,10 +1,37 @@
 "use client";
 
+import {
+  Building2,
+  Calculator,
+  FileText,
+  Inbox,
+  LayoutDashboard,
+  Settings,
+  Users,
+  type LucideIcon,
+} from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import { cn } from "@/lib/utils";
-import type { ItemDeNav } from "./nav-items";
+import type { ItemDeNav, NombreDeIcono } from "./nav-items";
+
+/**
+ * Mapa de nombre de ícono -> componente. Vive acá y no en nav-items.ts
+ * porque este archivo SÍ es un Client Component: puede importar los
+ * componentes de lucide-react sin problema, a diferencia del layout
+ * (Server Component) que arma la lista de items. Ver el comentario en
+ * nav-items.ts.
+ */
+const ICONOS: Record<NombreDeIcono, LucideIcon> = {
+  LayoutDashboard,
+  Building2,
+  Inbox,
+  Calculator,
+  FileText,
+  Users,
+  Settings,
+};
 
 /**
  * Lista de navegación. La reusan el sidebar de escritorio y el Sheet mobile.
@@ -20,7 +47,7 @@ export function SidebarNav({ items, onNavigate }: { items: ItemDeNav[]; onNaviga
     <nav className="flex flex-col gap-1">
       {items.map((item) => {
         const activo = pathname === item.href;
-        const Icono = item.icon;
+        const Icono = ICONOS[item.icon];
 
         if (item.proximamente) {
           return (

@@ -46,8 +46,10 @@ model Tenant {
 
   status TenantStatus @default(ACTIVE)
 
-  users   User[]
-  modules TenantModule[]
+  users      User[]
+  modules    TenantModule[]
+  properties Property[]
+  photos     PropertyPhoto[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -147,4 +149,117 @@ enum ModuleKey {
   LANDING_BUILDER
 
   @@map("module_key")
+}
+
+// ============================================================================
+// PROPIEDADES (Fase 3.2)
+// ============================================================================
+
+/// Una propiedad cargada por el tenant.
+model Property {
+  id String @id @default(cuid())
+
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  title       String
+  description String?
+
+  propertyType  PropertyType
+  operationType OperationType
+
+  /// AVAILABLE / RESERVED / SOLD. "SOLD" cubre tambien "alquilada" en
+  /// operaciones de alquiler — el plan define exactamente estos tres estados
+  /// sin distinguir por tipo de operacion. Ver D-030.
+  status PropertyStatus @default(AVAILABLE)
+
+  price    Decimal? @db.Decimal(14, 2)
+  currency Currency @default(ARS)
+
+  /// Direccion en campos estructurados, no un string libre: hace falta poder
+  /// filtrar por ciudad/provincia en el listado y en la landing publica.
+  addressStreet   String
+  addressCity     String
+  addressProvince String
+  addressZip      String?
+
+  /// Nullable: se completan en la Fase 3.2b (geocoding con Google Maps),
+  /// bloqueada hasta tener la API key. El resto del CRUD no depende de esto.
+  latitude  Float?
+  longitude Float?
+
+  bedrooms     Int?
+  bathrooms    Int?
+  totalArea    Float?
+  coveredArea  Float?
+  garageSpaces Int?
+
+  photos PropertyPhoto[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@map("properties")
+}
+
+enum PropertyType {
+  HOUSE
+  APARTMENT
+  LAND
+  COMMERCIAL
+  OFFICE
+
+  @@map("property_type")
+}
+
+enum OperationType {
+  SALE
+  RENT
+
+  @@map("operation_type")
+}
+
+enum PropertyStatus {
+  AVAILABLE
+  RESERVED
+  SOLD
+
+  @@map("property_status")
+}
+
+enum Currency {
+  ARS
+  USD
+
+  @@map("currency")
+}
+
+/// Foto de una propiedad, en el bucket de Supabase Storage `property-photos`.
+model PropertyPhoto {
+  id String @id @default(cuid())
+
+  /// Denormalizado desde Property.tenantId a proposito: la capa de acceso a
+  /// datos (forTenant) inyecta el filtro por `tenantId` en TODO modelo que no
+  /// este en la lista de exclusiones — sin esta columna, PropertyPhoto
+  /// quedaria afuera de esa proteccion. Ver src/lib/db/tenant-scope.ts.
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  /// Path DENTRO del bucket (`<tenantId>/<propertyId>/<archivo>`), no la URL.
+  /// El bucket es publico para lectura (son fotos de marketing), asi que la
+  /// URL se deriva del path en el momento de mostrarla — guardar el path y no
+  /// la URL evita tener que migrar datos si el dominio de Supabase cambia.
+  path  String
+  order Int    @default(0)
+
+  createdAt DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([propertyId])
+  @@map("property_photos")
 }

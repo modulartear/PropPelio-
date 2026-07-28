@@ -536,3 +536,126 @@ consecuencias mecánicas de una decisión previa, sin margen real de elección.
   (común en paneles admin), ahí conviene pasar a `.dark` + `next-themes`, y de
   paso consolidar los `dark:` sueltos del código para que lean de las mismas
   variables que los componentes de shadcn.
+
+## D-030 — Storage RLS de las fotos + qué significa `PropertyStatus.SOLD`
+
+- **Fecha:** 2026-07-28
+- **Fase:** 3.2
+- **Decidió:** Claude
+- **Contexto:** las fotos de propiedades se guardan en un bucket de Supabase
+  Storage (`property-photos`), un sistema separado de Postgres. Storage tiene
+  su propio mecanismo de RLS sobre `storage.objects`, que no comparte nada con
+  las políticas de `app_user`/`tenant_actual()` de D-025: no hay una
+  transacción de Postgres corriendo `set_config('app.tenant_id', ...)`
+  alrededor de una llamada a la API de Storage.
+- **Decisión (aislamiento de Storage):**
+  - El bucket es **público para lectura** (`SELECT` sin restricción): son
+    fotos de marketing de una landing pública, no archivos privados.
+  - Es **privado para escritura**: las políticas de `INSERT`/`DELETE`
+    comparan el primer segmento del path (`<tenantId>/...`, ver
+    `pathDeFoto()`) contra el `tenantId` del usuario autenticado, resuelto con
+    `auth.uid()` → `public.users.authUserId` → `tenantId`. Es el mismo patrón
+    de aislamiento que D-025, pero expresado con `auth.uid()` en vez de una
+    variable de sesión, porque las llamadas a Storage pasan por el cliente de
+    Supabase con la sesión real del usuario (`createServerSupabaseClient()`),
+    nunca por el pool de conexión de Postgres.
+  - Las subidas/borrados de archivo pasan **siempre** por ese cliente de
+    sesión, nunca por el cliente admin — mismo motivo que D-025: el cliente
+    admin bypasea exactamente la protección que se está probando.
+- **Decisión (significado de `SOLD`):** el plan del proyecto define tres
+  estados para una propiedad — disponible, reservada, vendida — sin
+  distinguir por tipo de operación. Una propiedad en alquiler que ya se
+  alquiló usa el mismo estado `SOLD` que una venta cerrada; no existe un
+  cuarto estado "alquilada". Si más adelante hace falta esa distinción (por
+  ejemplo, para no confundir "vendida" con "alquilada" en la UI), se agrega
+  un estado nuevo al enum en una migración aparte — no se infiere del
+  `operationType` en el estado actual.
+- **Costo / reversibilidad:** Medio. Cambiar las políticas de Storage es una
+  migración SQL más (bajo costo). Separar `SOLD` en dos estados distintos más
+  adelante es una migración de datos, no solo de esquema: hay que decidir qué
+  hacer con las filas existentes.
+
+## D-031 — Google Maps: script cargado directo, sin paquete de npm; autocompletado como método principal de ubicación
+
+- **Fecha:** 2026-07-28
+- **Fase:** 3.2
+- **Decidió:** el usuario del proyecto (autocompletado vs. geocoding manual
+  vs. sin geocoding) + Claude (detalles de implementación)
+- **Contexto:** con la API key de Google Cloud Console ya generada y
+  restringida (HTTP referrer + restricción por API — Maps JavaScript,
+  Places, Geocoding), había que decidir cómo se completa la ubicación de una
+  propiedad. Se le presentaron tres opciones al usuario: autocompletado de
+  Google Places (completa todo solo), geocoding manual con botón + mapa
+  ajustable, o solo mapa sin geocoding.
+- **Decisión (UX):** autocompletado de dirección como método principal. Un
+  campo de búsqueda con `google.maps.places.Autocomplete` completa calle,
+  ciudad, provincia, código postal y coordenadas al elegir una sugerencia.
+  Los campos de dirección siguen siendo inputs editables a mano por si el
+  autocompletado se equivoca, y el mapa muestra un pin **arrastrable** para
+  corregir la posición sin tener que re-tipear la dirección — un agregado de
+  bajo costo sobre la opción elegida, no un cambio de flujo: seguir
+  necesitando la búsqueda para ubicar una propiedad por primera vez, el
+  arrastre es solo un ajuste fino.
+- **Decisión (implementación):** la Maps JavaScript API se carga con
+  `next/script` (`https://maps.googleapis.com/maps/api/js?...`), no con un
+  paquete de npm (tipo `@googlemaps/js-api-loader` o `@vis.gl/react-google-maps`).
+  Es la forma más directa de tener `Autocomplete`, `Map` y `Marker`
+  disponibles del lado del cliente sin sumar una dependencia de runtime para
+  algo que en el fondo es un `<script>`.
+- **Se instaló** `@types/google.maps` como **devDependency** (sin código en
+  runtime, solo tipos) para tipar `google.maps.*` sin escribir declaraciones
+  ambient a mano — coherente con que el resto de la base evita reescribir a
+  mano lo que ya existe como tipo oficial.
+- **Sin restricción de país** en el autocompletado: aunque las monedas por
+  defecto sugieren un enfoque en Argentina, restringir el autocompletado a un
+  país sería una decisión de producto (qué mercados sirve el SaaS) que no
+  está en el plan y no le correspondía a Claude decidir sola. Queda como
+  mejora fácil de sumar (`componentRestrictions: { country: "ar" }`) si el
+  usuario lo pide.
+- **Costo / reversibilidad:** Bajo. Cambiar la estrategia de carga del script
+  o sumar restricción de país son cambios locales a `location-field.tsx`, sin
+  tocar el modelo de datos ni las Server Actions.
+
+## D-032 — Atajo `?tenant=` en desarrollo, para cuando el subdominio de `localhost` no tunelea bien en Codespaces
+
+- **Fecha:** 2026-07-28
+- **Fase:** 3.2
+- **Decidió:** el usuario del proyecto (eligió esta opción sobre seguir
+  depurando el túnel o confiar solo en tests automatizados)
+- **Contexto:** probar el panel de un tenant en un navegador real requiere
+  que `<subdominio>.localhost:3000` conecte. En el Codespace del usuario, eso
+  falló de forma persistente (`ERR_CONNECTION_REFUSED`) incluso agregando la
+  entrada al archivo hosts de Windows y confirmando que el server corría bien
+  — mientras que `localhost:3000` sin subdominio sí conectaba siempre. La
+  causa exacta (versión de VS Code, extensión de reenvío de puertos, alguna
+  política de red) no se pudo aislar en un tiempo razonable, y no hay
+  dominio real todavía para probar en Vercel (wildcard pospuesto, D-018).
+- **Decisión:** en `src/middleware.ts`, si el host resuelve como dominio raíz
+  Y `NODE_ENV === "development"` Y el request trae `?tenant=<subdominio>`,
+  el middleware simula el host `<subdominio>.<dominioRaiz>` — no solo para la
+  reescritura de la URL, sino reemplazando el header `Host` que ve el resto
+  del server (`getTenantFromRequest()` en Node lo vuelve a leer de forma
+  independiente, así que hacía falta tocar el header, no solo la URL
+  reescrita). Con esto, `localhost:3000/admin?tenant=diseartevt` funciona
+  igual que `diseartevt.localhost:3000/admin` sin depender de que el
+  navegador resuelva un host inventado.
+- **Por qué no es riesgo en producción:** el chequeo de `NODE_ENV` corta la
+  ruta completa — en Vercel (`NODE_ENV=production`) esta rama de código nunca
+  se ejecuta, así que no hay forma de "falsificar" un tenant vía query string
+  fuera de desarrollo local.
+- **Limitación conocida:** el login sigue redirigiendo a la URL con
+  subdominio real (`destinoPostLogin()` no sabe si el que lo usa puede
+  resolver ese host o no) — a propósito, para no romper el flujo normal de
+  quien SÍ puede resolver subdominios de `localhost`. Quien necesite el
+  atajo tiene que navegar a mano a la URL con `?tenant=` después de loguearse
+  (la sesión ya quedó creada, el login no hay que repetirlo).
+- **Actualización (mismo día):** el `?tenant=` solo no alcanzaba para navegar
+  con comodidad — cualquier click en el menú del panel apunta a `/admin/algo`
+  SIN el query string (son los mismos `href` que usa producción, a propósito,
+  ver el comentario de `nav-items.ts`), así que se perdía el tenant simulado
+  en cada click. Se agregó una cookie `dev-tenant`: el middleware la escribe
+  la primera vez que ve `?tenant=`, y la vuelve a leer en requests
+  posteriores al dominio raíz que no traen el query string. Mismo gateo por
+  `NODE_ENV === "development"`.
+- **Costo / reversibilidad:** Muy bajo. Es un `if` acotado a desarrollo en un
+  solo archivo; se puede borrar sin dejar rastro cuando deje de hacer falta.

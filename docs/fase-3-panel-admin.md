@@ -8,7 +8,7 @@ sub-etapas cerrables por separado — ver la tabla de estado.
 | Sub-etapa | Contenido                                                       | Estado                   |
 | --------- | --------------------------------------------------------------- | ------------------------ |
 | **3.1**   | Esqueleto del panel: layout, navegación, guard, dashboard vacío | ✅ Este documento        |
-| **3.2**   | CRUD de propiedades + fotos en Storage                          | ⏳ Pendiente             |
+| **3.2**   | CRUD de propiedades + fotos en Storage                          | ⏳ Parcial — ver abajo   |
 | **3.3**   | Leads y tasaciones                                              | ⏳ Pendiente             |
 | **3.4**   | Usuarios internos del tenant + configuración de marca           | ⏳ Pendiente             |
 | —         | Documentación (módulo 5 del plan)                               | ⏳ Postergado — ver nota |
@@ -90,6 +90,128 @@ Sigue atado a `prefers-color-scheme`, no a una clase `.dark`. Ver D-029: el
 `@custom-variant dark` que trae el template de shadcn habría apagado en
 silencio el dark mode que ya usan las páginas de fases anteriores.
 
+### Bug encontrado al fin poder ver el panel en un navegador real (3.2)
+
+`NAV_ITEMS` guardaba el componente de ícono de lucide-react directo
+(`icon: LayoutDashboard`, etc.). Como el layout del panel es un Server
+Component y `PanelShell`/`SidebarNav` son Client Components, pasar ese
+componente como prop cruza el límite server→client — y un componente de
+lucide-react es un objeto `forwardRef` (tiene un método `render`), no un
+objeto plano, así que React lo rechaza: `Only plain objects can be passed
+to Client Components from Server Components`.
+
+Este bug estaba desde que se armó `nav-items.ts` en 3.1, pero nunca se vio
+en un navegador real hasta la sub-etapa 3.2, cuando por fin se pudo llegar
+al panel con sesión real (ver "problemas conocidos" en `docs/setup.md` sobre
+por qué costó tanto). El build, el lint y los tests nunca lo iban a agarrar:
+es un error de serialización en tiempo de ejecución del lado del servidor,
+no un error de tipos ni de lógica pura.
+
+**Arreglo:** `NAV_ITEMS` guarda el _nombre_ del ícono (`icon:
+"LayoutDashboard"`, un string), no el componente. El mapa de nombre →
+componente vive en `sidebar-nav.tsx`, que sí es un Client Component y puede
+importar los íconos de lucide-react sin problema.
+
+---
+
+## 3.2 — CRUD de propiedades
+
+### Modelo de datos
+
+`Property` y `PropertyPhoto` en `prisma/schema.prisma`, migración
+`20260728082948_propiedades`. Aislamiento por tenant con el mismo patrón de
+RLS que D-025 (`ALTER TABLE ... FORCE ROW LEVEL SECURITY` + política atada a
+`app_user`/`tenant_actual()`).
+
+`PropertyPhoto.tenantId` está denormalizado desde `Property.tenantId` a
+propósito: `forTenant()` inyecta el filtro de tenant en todo modelo que no
+esté en su lista de exclusiones, y sin esa columna `PropertyPhoto` quedaría
+afuera de esa protección.
+
+`latitude`/`longitude` existen en el modelo pero están sin usar — quedan
+reservados para 3.2b (geocoding, bloqueada por la API key de Google Maps).
+
+Ver D-030 para el aislamiento de Storage y qué significa el estado `SOLD`.
+
+### Fotos: Supabase Storage
+
+Bucket `property-photos`, creado por SQL en la misma migración (no es un
+secreto, a diferencia de la contraseña de `app_user`). Público para lectura,
+protegido por RLS de Storage para escritura — políticas comparan el primer
+segmento del path contra el tenant del usuario autenticado. Límites: 5MB por
+foto, 20 fotos por propiedad (elegidos por el usuario del proyecto al
+arrancar esta sub-etapa).
+
+El path de cada foto (`<tenantId>/<propertyId>/<uuid>.<ext>`) nunca usa el
+nombre de archivo original — evita caracteres raros e intentos de path
+traversal de raíz. Se guarda el **path**, no la URL pública: la URL se
+deriva con `urlPublicaDeFoto()` en el momento de mostrarla, así un cambio de
+dominio de Supabase no exige migrar datos.
+
+Borrar una propiedad borra primero sus fotos de Storage a mano, antes de
+borrar la fila: el `ON DELETE CASCADE` de Postgres borra `property_photos`,
+pero no toca el bucket — son sistemas distintos.
+
+### Server Actions
+
+`src/lib/properties/acciones.ts`: `crearPropiedad`, `actualizarPropiedad`,
+`eliminarPropiedad`, `subirFotos`, `eliminarFoto`. Todas empiezan con
+`requireTenantUser()` y usan `forTenant(tenant.id)` — nunca el cliente crudo.
+
+`actualizarPropiedad`/`eliminarPropiedad`/`eliminarFoto` usan
+`updateMany`/`deleteMany` en vez de `update`/`delete`: un `where` de un solo
+campo único (`id`) no admite que la extensión de tenant le agregue
+`tenantId` sin reescribir la operación — mismo motivo por el que
+`tenant-scope.ts` reescribe `findUnique` como `findFirst`. Con `updateMany`,
+un `id` de otro tenant no matchea ninguna fila (`count === 0`) en vez de
+lanzar una excepción que delate que la fila existe en otro tenant.
+
+### Formulario: `<select>` nativo, no el componente de shadcn
+
+`PropertyForm` (`src/components/properties/property-form.tsx`) usa
+elementos `<select>` HTML nativos para los cuatro campos de clasificación
+(tipo, operación, estado, moneda), no el `Select` de shadcn/Radix. Es el
+primer formulario del proyecto con campos de selección enviados por Server
+Action, y no hay forma de probarlo en un navegador real desde este entorno
+(ver limitaciones de Codespaces en `docs/setup.md`). Un `<select>` nativo
+participa en el `FormData` sin ninguna duda posible; el componente de Radix
+queda disponible para cuando haga falta algo más rico y se pueda probar en
+vivo.
+
+### Rutas
+
+```
+/admin/propiedades           → listado
+/admin/propiedades/nueva     → alta
+/admin/propiedades/[id]      → edición + gestión de fotos + borrado
+```
+
+### Mapa y geocoding (Google Maps)
+
+`src/components/properties/location-field.tsx`, usado dentro de
+`PropertyForm` en la sección "Ubicación". Ver D-031 para el porqué de cada
+decisión; acá solo el cómo:
+
+- Un campo de búsqueda con `google.maps.places.Autocomplete` completa calle,
+  ciudad, provincia, código postal y coordenadas al elegir una sugerencia.
+  Los campos de dirección quedan editables a mano igual.
+- El mapa muestra un pin arrastrable para ajustar la posición sin tener que
+  volver a buscar la dirección.
+- La API de Google se carga con `next/script`, no con un paquete de npm.
+  `@types/google.maps` es una **devDependency** (solo tipos, cero código en
+  runtime).
+- La clave pública vive en `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`, leída por
+  `googleMapsEnv()` en `src/lib/env.ts` — separada de `publicEnv()` a
+  propósito, para que solo las páginas que de verdad usan el mapa puedan
+  romper por esta variable faltante.
+
+**Pendiente de quien despliega:** cargar `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`
+como Codespaces secret (repo `PropPelio-`) y como Environment Variable en
+Vercel — el mismo mecanismo que el resto de las variables públicas del
+proyecto (ver `.env.example`). El valor sale de Google Cloud Console >
+APIs & Services > Credentials, restringido por HTTP referrer + por API
+(Maps JavaScript, Places, Geocoding).
+
 ---
 
 ## Verificación
@@ -97,8 +219,8 @@ silencio el dark mode que ya usan las páginas de fases anteriores.
 Automatizable sin credenciales:
 
 ```bash
-npm test       # incluye nav-items.test.ts
-npm run build  # /tenants/[por]/[valor]/admin compila como ruta dinámica
+npm test       # incluye nav-items.test.ts, validacion.test.ts, property-photos.test.ts
+npm run build  # /tenants/[por]/[valor]/admin/propiedades* compilan como rutas dinámicas
 ```
 
 **Requiere sesión real (Codespace, contra Supabase):**
@@ -114,3 +236,14 @@ npm run build  # /tenants/[por]/[valor]/admin compila como ruta dinámica
    `db:verify-rls` a nivel de datos, ahora aplicado a la primera pantalla real.
 5. En mobile (o achicando la ventana), el sidebar se reemplaza por el botón de
    menú → abre el `Sheet` → un click en un item lo cierra y navega.
+6. Crear una propiedad desde `/admin/propiedades/nueva`, subir 2-3 fotos,
+   editar un campo y guardarlo, borrar una foto, y por último borrar la
+   propiedad entera — confirmar que las fotos desaparecen también del bucket
+   (panel de Supabase Storage) y no solo de la base.
+7. Con sesión de `tenant-a`, escribir a mano la URL de una propiedad de
+   `tenant-b` (`/admin/propiedades/<id-de-otro-tenant>`) → **404**.
+8. Con `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` configurada: en "Ubicación",
+   escribir una dirección en "Buscar dirección" y elegir una sugerencia →
+   se completan calle/ciudad/provincia/CP y aparece el pin en el mapa.
+   Arrastrar el pin y confirmar que se guarda la nueva posición al guardar
+   la propiedad.
