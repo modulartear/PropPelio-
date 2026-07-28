@@ -536,3 +536,41 @@ consecuencias mecánicas de una decisión previa, sin margen real de elección.
   (común en paneles admin), ahí conviene pasar a `.dark` + `next-themes`, y de
   paso consolidar los `dark:` sueltos del código para que lean de las mismas
   variables que los componentes de shadcn.
+
+## D-030 — Storage RLS de las fotos + qué significa `PropertyStatus.SOLD`
+
+- **Fecha:** 2026-07-28
+- **Fase:** 3.2
+- **Decidió:** Claude
+- **Contexto:** las fotos de propiedades se guardan en un bucket de Supabase
+  Storage (`property-photos`), un sistema separado de Postgres. Storage tiene
+  su propio mecanismo de RLS sobre `storage.objects`, que no comparte nada con
+  las políticas de `app_user`/`tenant_actual()` de D-025: no hay una
+  transacción de Postgres corriendo `set_config('app.tenant_id', ...)`
+  alrededor de una llamada a la API de Storage.
+- **Decisión (aislamiento de Storage):**
+  - El bucket es **público para lectura** (`SELECT` sin restricción): son
+    fotos de marketing de una landing pública, no archivos privados.
+  - Es **privado para escritura**: las políticas de `INSERT`/`DELETE`
+    comparan el primer segmento del path (`<tenantId>/...`, ver
+    `pathDeFoto()`) contra el `tenantId` del usuario autenticado, resuelto con
+    `auth.uid()` → `public.users.authUserId` → `tenantId`. Es el mismo patrón
+    de aislamiento que D-025, pero expresado con `auth.uid()` en vez de una
+    variable de sesión, porque las llamadas a Storage pasan por el cliente de
+    Supabase con la sesión real del usuario (`createServerSupabaseClient()`),
+    nunca por el pool de conexión de Postgres.
+  - Las subidas/borrados de archivo pasan **siempre** por ese cliente de
+    sesión, nunca por el cliente admin — mismo motivo que D-025: el cliente
+    admin bypasea exactamente la protección que se está probando.
+- **Decisión (significado de `SOLD`):** el plan del proyecto define tres
+  estados para una propiedad — disponible, reservada, vendida — sin
+  distinguir por tipo de operación. Una propiedad en alquiler que ya se
+  alquiló usa el mismo estado `SOLD` que una venta cerrada; no existe un
+  cuarto estado "alquilada". Si más adelante hace falta esa distinción (por
+  ejemplo, para no confundir "vendida" con "alquilada" en la UI), se agrega
+  un estado nuevo al enum en una migración aparte — no se infiere del
+  `operationType` en el estado actual.
+- **Costo / reversibilidad:** Medio. Cambiar las políticas de Storage es una
+  migración SQL más (bajo costo). Separar `SOLD` en dos estados distintos más
+  adelante es una migración de datos, no solo de esquema: hay que decidir qué
+  hacer con las filas existentes.

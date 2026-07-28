@@ -38,7 +38,7 @@ export type ItemDeNav = {
 
 export const NAV_ITEMS: ItemDeNav[] = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/admin/propiedades", label: "Propiedades", icon: Building2, proximamente: true },
+  { href: "/admin/propiedades", label: "Propiedades", icon: Building2 },
   { href: "/admin/consultas", label: "Consultas", icon: Inbox, proximamente: true },
   { href: "/admin/tasaciones", label: "Tasaciones", icon: Calculator, proximamente: true },
   { href: "/admin/documentacion", label: "Documentación", icon: FileText, proximamente: true },
