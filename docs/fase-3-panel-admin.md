@@ -107,7 +107,7 @@ por qué costó tanto). El build, el lint y los tests nunca lo iban a agarrar:
 es un error de serialización en tiempo de ejecución del lado del servidor,
 no un error de tipos ni de lógica pura.
 
-**Arreglo:** `NAV_ITEMS` guarda el *nombre* del ícono (`icon:
+**Arreglo:** `NAV_ITEMS` guarda el _nombre_ del ícono (`icon:
 "LayoutDashboard"`, un string), no el componente. El mapa de nombre →
 componente vive en `sidebar-nav.tsx`, que sí es un Client Component y puede
 importar los íconos de lucide-react sin problema.

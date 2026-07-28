@@ -34,12 +34,21 @@ export async function middleware(request: NextRequest) {
   // header `Host` que ve el resto de la app (incluido `getTenantFromRequest()`
   // en Node), no solo la reescritura de acá: si no, esta pagina resolveria
   // bien la URL pero el resto del server seguiria viendo el dominio raiz.
+  //
+  // El valor tambien se guarda en una cookie: sin esto, cada click en un link
+  // del menu (que apunta a `/admin/algo`, sin el query string) perderia el
+  // tenant simulado y volveria a caer en el dominio raiz. La cookie hace que
+  // el atajo sobreviva a la navegacion normal despues de usarlo una vez.
   let hostSimulado: string | null = null;
+  let tenantParaCookie: string | null = null;
   if (resuelto.tipo === "raiz" && process.env.NODE_ENV === "development") {
-    const tenantDeDesarrollo = request.nextUrl.searchParams.get("tenant");
+    const tenantDeDesarrollo =
+      request.nextUrl.searchParams.get("tenant") ?? request.cookies.get("dev-tenant")?.value;
+
     if (tenantDeDesarrollo) {
       hostSimulado = `${tenantDeDesarrollo}.${dominioRaiz}`;
       resuelto = resolverHost(hostSimulado, dominioRaiz);
+      tenantParaCookie = tenantDeDesarrollo;
     }
   }
 
@@ -78,7 +87,16 @@ export async function middleware(request: NextRequest) {
     response = NextResponse.rewrite(url, { request: requestParaElResto });
   }
 
-  return refrescarSesion(request, response);
+  const respuestaFinal = await refrescarSesion(request, response);
+
+  if (tenantParaCookie) {
+    respuestaFinal.cookies.set("dev-tenant", tenantParaCookie, {
+      path: "/",
+      sameSite: "lax",
+    });
+  }
+
+  return respuestaFinal;
 }
 
 export const config = {

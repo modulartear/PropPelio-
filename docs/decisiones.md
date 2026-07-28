@@ -649,5 +649,13 @@ consecuencias mecánicas de una decisión previa, sin margen real de elección.
   quien SÍ puede resolver subdominios de `localhost`. Quien necesite el
   atajo tiene que navegar a mano a la URL con `?tenant=` después de loguearse
   (la sesión ya quedó creada, el login no hay que repetirlo).
+- **Actualización (mismo día):** el `?tenant=` solo no alcanzaba para navegar
+  con comodidad — cualquier click en el menú del panel apunta a `/admin/algo`
+  SIN el query string (son los mismos `href` que usa producción, a propósito,
+  ver el comentario de `nav-items.ts`), así que se perdía el tenant simulado
+  en cada click. Se agregó una cookie `dev-tenant`: el middleware la escribe
+  la primera vez que ve `?tenant=`, y la vuelve a leer en requests
+  posteriores al dominio raíz que no traen el query string. Mismo gateo por
+  `NODE_ENV === "development"`.
 - **Costo / reversibilidad:** Muy bajo. Es un `if` acotado a desarrollo en un
   solo archivo; se puede borrar sin dejar rastro cuando deje de hacer falta.
