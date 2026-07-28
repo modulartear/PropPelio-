@@ -4,27 +4,28 @@ SaaS multi-tenant para inmobiliarias: panel administrativo estilo Tokko Broker m
 landing pública personalizable por cliente con un builder visual tipo Elementor.
 
 > Este documento describe el diseño de referencia del proyecto completo, pero
-> **marca explícitamente qué está implementado y qué no**. Al cierre de la
-> Fase 1 existen el proyecto base y el núcleo multi-tenant; no hay todavía
-> autenticación ni lógica de negocio.
+> **marca explícitamente qué está implementado y qué no**. Al momento de esta
+> edición: proyecto base, núcleo multi-tenant, autenticación con RLS, y el
+> esqueleto del panel administrativo (Fase 3.1). Sin módulos de negocio
+> todavía (propiedades, leads, tasaciones).
 
 ---
 
 ## 1. Stack
 
-| Capa          | Tecnología                   | Estado                                  |
-| ------------- | ---------------------------- | --------------------------------------- |
-| Framework     | Next.js 15.5.22 (App Router) | ✅ Instalado                            |
-| Lenguaje      | TypeScript 5                 | ✅ Instalado                            |
-| UI runtime    | React 19.1.0                 | ✅ Instalado                            |
-| Estilos       | Tailwind CSS v4              | ✅ Instalado                            |
-| Componentes   | shadcn/ui                    | ❌ No instalado (no es tarea de Fase 0) |
-| Base de datos | Postgres (Supabase)          | ✅ Conectado y verificado (sa-east-1)   |
-| ORM           | Prisma 7.9.0                 | ✅ Migración aplicada a Supabase        |
-| Auth          | Supabase Auth                | ✅ Login, registro y roles              |
-| Storage       | Supabase Storage             | ⏳ Cliente listo, sin usar (Fase 3)     |
-| Hosting / CI  | Vercel                       | ✅ Conectado y deployando               |
-| Entorno dev   | GitHub Codespaces            | ✅ Devcontainer verificado              |
+| Capa          | Tecnología                   | Estado                                |
+| ------------- | ---------------------------- | ------------------------------------- |
+| Framework     | Next.js 15.5.22 (App Router) | ✅ Instalado                          |
+| Lenguaje      | TypeScript 5                 | ✅ Instalado                          |
+| UI runtime    | React 19.1.0                 | ✅ Instalado                          |
+| Estilos       | Tailwind CSS v4              | ✅ Instalado                          |
+| Componentes   | shadcn/ui                    | ✅ Instalado a mano (D-028)           |
+| Base de datos | Postgres (Supabase)          | ✅ Conectado y verificado (sa-east-1) |
+| ORM           | Prisma 7.9.0                 | ✅ Migración aplicada a Supabase      |
+| Auth          | Supabase Auth                | ✅ Login, registro y roles            |
+| Storage       | Supabase Storage             | ⏳ Cliente listo, sin usar (Fase 3)   |
+| Hosting / CI  | Vercel                       | ✅ Conectado y deployando             |
+| Entorno dev   | GitHub Codespaces            | ✅ Devcontainer verificado            |
 
 Ver `docs/decisiones.md` para el porqué de cada versión fijada.
 
